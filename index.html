@@ -1400,8 +1400,8 @@
                 showLoading(false);
             }
         }
-
-        // Handle user profile data saving
+        
+        // Handle user profile data saving - এটি পরিবর্তিত ফাংশন
         async function handleProfileSave(event) {
             event.preventDefault();
             const name = document.getElementById('name').value;
@@ -1435,10 +1435,32 @@
                 }
                 
                 const docRef = doc(db, `artifacts/${appId}/users/${currentUser.uid}`);
+                
+                // --- সমাধান শুরু ---
+                // ধাপ ১: ব্যবহারকারীর বর্তমান ডেটা পড়ুন
+                const userDoc = await getDoc(docRef);
+                if (!userDoc.exists()) {
+                    // এটি হওয়া উচিত নয় যদি ব্যবহারকারী লগইন করে থাকে, কিন্তু এটি একটি ভালো নিরাপত্তা পরীক্ষা
+                    throw new Error("User document could not be found!");
+                }
+                const existingData = userDoc.data();
+                // --- সমাধান समाप्त ---
+
                 const pinHash = hashPin(pin);
-                // BUG FIX: Removed balance from this object to prevent it from being reset to 0.
-                await setDoc(docRef, { name, dob, mobile, pinHash, email: currentUser.email }, { merge: true });
+
+                // ধাপ ২: আপডেটের সময় পুরনো balance এবং isAdmin মান অন্তর্ভুক্ত করুন
+                await setDoc(docRef, {
+                    name: name,
+                    dob: dob,
+                    mobile: mobile,
+                    pinHash: pinHash,
+                    email: currentUser.email,
+                    balance: existingData.balance, // এই লাইনটি যোগ করা হয়েছে
+                    isAdmin: existingData.isAdmin  // এই লাইনটি যোগ করা হয়েছে
+                }, { merge: true });
+                
                 showMessage("প্রোফাইল সফলভাবে সংরক্ষণ করা হয়েছে!");
+
             } catch (error) {
                 console.error("Error saving profile:", error);
                 showMessage("প্রোফাইল সংরক্ষণ ব্যর্থ হয়েছে।");
