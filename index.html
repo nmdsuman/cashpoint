@@ -217,19 +217,20 @@
         let recipientData = {}; // To store recipient info for the transaction
         let isAdmin = false;
 
-        // Transaction Charges Configuration - Will be loaded from Firestore
+        // ❗️❗️ এই অংশটি আপডেট করা হয়েছে ❗️❗️
+        // অ্যাপের ডিফল্ট কনফিগারেশন। এখন সব Firestore থেকে লোড হবে।
         let appConfig = {
             charges: {
-                send: { percentage: 2, fixed: 5 },
-                transfer: { percentage: 1.5, fixed: 10 }
+                send: { percentage: 0, fixed: 0 },
+                transfer: { percentage: 0, fixed: 0 }
             },
             reserve: {
                 bkash: 0,
                 nagad: 0
             },
             paymentNumbers: {
-                bkash: '01XXXXXXXXX',
-                nagad: '01YYYYYYYYY'
+                bkash: '',
+                nagad: ''
             }
         };
 
@@ -611,7 +612,7 @@
             }
         }
         
-        // ❗️❗️ এই ফাংশনটি আপনার অনুরোধ অনুযায়ী আগের ডিজাইনে ফেরত আনা হয়েছে ❗️❗️
+        // Show transaction details in a modal
         function showTransactionDetails(tx, title, amountPrefix, color) {
             const modal = document.getElementById('transaction-details-modal');
             const modalContent = document.getElementById('modal-content');
@@ -628,38 +629,30 @@
             }
 
             modalContent.innerHTML = `
-                <div class="flex justify-between items-center pb-3 border-b mb-3">
-                    <h3 class="text-xl font-semibold">${title}</h3>
-                    <p class="font-semibold ${statusColor}">${statusText}</p>
+                <div class="flex justify-between items-center pb-2 border-b">
+                    <h3 class="text-lg font-bold">${title}</h3>
+                    <p class="font-bold ${statusColor}">${statusText}</p>
                 </div>
-                
-                <div class="text-center mb-4">
-                    <p class="text-4xl font-bold ${color}">${amountPrefix}${tx.amount.toFixed(2)}</p>
+                <div class="flex justify-between items-center text-center">
+                    <p class="text-3xl font-bold ${color}">${amountPrefix}${tx.amount.toFixed(2)}</p>
                 </div>
-
-                <div class="space-y-2 text-sm">
-                    <div class="flex justify-between">
-                        <p class="text-gray-500">বিস্তারিত:</p>
-                        <p class="font-semibold text-gray-800">${tx.description}</p>
-                    </div>
-                    <div class="flex justify-between">
-                        <p class="text-gray-500">সময়:</p>
-                        <p class="font-semibold text-gray-800">${time}, ${dateStr}</p>
-                    </div>
-                    <div class="flex justify-between">
-                        <p class="text-gray-500">চার্জ:</p>
-                        <p class="font-semibold text-gray-800">৳ ${(tx.charge || 0).toFixed(2)}</p>
-                    </div>
-                    <div class="flex justify-between items-center">
-                        <p class="text-gray-500">ট্রানজেকশন আইডি:</p>
-                        <div class="flex items-center">
-                            <p class="font-semibold font-mono text-gray-800">${tx.transactionId || 'N/A'}</p>
-                            <i class="fas fa-copy text-xs text-cashpoint-pink ml-2 cursor-pointer" onclick="copyToClipboard('${tx.transactionId}')"></i>
-                        </div>
-                    </div>
+                <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm pt-2">
+                    <p class="text-gray-500">বিস্তারিত:</p>
+                    <p class="text-right font-semibold">${tx.description}</p>
+                    
+                    <p class="text-gray-500">সময়:</p>
+                    <p class="text-right font-semibold">${time}, ${dateStr}</p>
+                    
+                    <p class="text-gray-500">চার্জ:</p>
+                    <p class="text-right font-semibold">৳ ${(tx.charge || 0).toFixed(2)}</p>
+                    
+                    <p class="text-gray-500">ট্রানজেকশন আইডি:</p>
+                    <p class="text-right font-semibold font-mono flex items-center justify-end">
+                        ${tx.transactionId || 'N/A'}
+                        <i class="fas fa-copy text-xs text-cashpoint-pink ml-2 cursor-pointer" onclick="copyToClipboard('${tx.transactionId}')"></i>
+                    </p>
                 </div>
-
-                <button id="close-modal-btn" class="absolute top-2 right-3 text-gray-400 hover:text-gray-800 text-2xl font-bold">&times;</button>
+                 <button id="close-modal-btn" class="absolute top-1 right-2 text-gray-400 hover:text-gray-800 text-2xl font-bold">&times;</button>
             `;
 
             modal.classList.remove('hidden');
@@ -941,7 +934,7 @@
             document.getElementById('back-to-options-btn').addEventListener('click', showAddMoneyOptions);
         }
 
-        // Handle the submission of a new add money request
+        // ❗️❗️ এই ফাংশনটি আপনার অনুরোধ অনুযায়ী আপডেট করা হয়েছে ❗️❗️
         async function handleAddMoneyRequest(event) {
             event.preventDefault();
             const amount = parseFloat(document.getElementById('amount-input').value);
@@ -957,8 +950,25 @@
 
             showLoading(true);
             try {
+                // ধাপ ১: একই TrxID দিয়ে কোনো পেন্ডিং বা সফল অনুরোধ আছে কি না তা পরীক্ষা করুন
+                const requestsRef = collection(db, `artifacts/${appId}/add_money_requests`);
+                const q = query(requestsRef, where("txId", "==", txId));
+                const querySnapshot = await getDocs(q);
+
+                let isTxIdInUse = false;
+                querySnapshot.forEach((doc) => {
+                    const requestStatus = doc.data().status;
+                    if (requestStatus === 'pending' || requestStatus === 'completed') {
+                        isTxIdInUse = true;
+                    }
+                });
+
+                if (isTxIdInUse) {
+                    throw new Error("এই TrxID দিয়ে ஏற்கனவே একটি অনুরোধ পেন্ডিং বা সফল হয়েছে।");
+                }
+                
+                // ধাপ ২: যদি TrxID ব্যবহারযোগ্য হয়, তবে নতুন অনুরোধ তৈরি করুন
                 const transactionId = generateTransactionId();
-                // Add a record in user's statement as 'pending'
                 const txCollectionRef = collection(db, `artifacts/${appId}/users/${currentUser.uid}/transactions`);
                 const newTxDocRef = await addDoc(txCollectionRef, {
                     type: 'deposit',
@@ -970,7 +980,6 @@
                     transactionId: transactionId
                 });
                 
-                // Add transaction request to the collection with reference to the user's transaction
                 await addDoc(collection(db, `artifacts/${appId}/add_money_requests`), {
                     userId: currentUser.uid,
                     amount: amount,
@@ -980,22 +989,22 @@
                     recipientAdminNumber: recipientAdminNumber,
                     status: 'pending',
                     timestamp: serverTimestamp(),
-                    transactionRef: newTxDocRef.id // Store the transaction document ID
+                    transactionRef: newTxDocRef.id
                 });
 
                 showMessage("আপনার রিকোয়েস্ট সফলভাবে জমা হয়েছে।");
+                
+                // ধাপ ৩: সফলভাবে জমা হওয়ার পর ড্যাশবোর্ডে ফিরে যান
+                const profileDocRef = doc(db, `artifacts/${appId}/users/${currentUser.uid}`);
+                const docSnap = await getDoc(profileDocRef);
+                const profileData = docSnap.exists() ? docSnap.data() : {};
+                renderDashboard(profileData);
+
             } catch (error) {
                 console.error("Error submitting request:", error);
-                showMessage("রিকোয়েস্ট জমা দিতে ব্যর্থ হয়েছে।");
+                showMessage(error.message || "রিকোয়েস্ট জমা দিতে ব্যর্থ হয়েছে।");
             } finally {
                 showLoading(false);
-                // Redirect back to dashboard to show pending request
-                const profileDocRef = doc(db, `artifacts/${appId}/users/${currentUser.uid}`);
-                onSnapshot(profileDocRef, (docSnap) => {
-                    const profileData = docSnap.exists() ? docSnap.data() : { name: 'ব্যবহারকারী', mobile: '', dob: '', balance: 0.00 };
-                    renderDashboard(profileData);
-                    renderSidebar(profileData);
-                });
             }
         }
         
@@ -1601,11 +1610,10 @@
             document.getElementById('charge-form').addEventListener('submit', handleSaveChargeSettings);
         }
 
-        // Handles saving the new charge settings to Firestore
-        async function handleSaveChargeSettings(event) {
+        // ❗️❗️ এই ফাংশনটি আপনার অনুরোধ অনুযায়ী আপডেট করা হয়েছে ❗️❗️
+        function handleSaveChargeSettings(event) {
             event.preventDefault();
-            showLoading(true);
-
+            
             const newConfig = {
                 charges: {
                     send: {
@@ -1627,13 +1635,74 @@
                 }
             };
             
+            renderPinConfirmationForSettings(newConfig);
+        }
+        
+        // ❗️❗️ এই নতুন ফাংশনটি যোগ করা হয়েছে ❗️❗️
+        function renderPinConfirmationForSettings(newConfig) {
+            const modal = document.getElementById('transaction-details-modal');
+            const modalContent = document.getElementById('modal-content');
+
+            modalContent.innerHTML = `
+                <div class="text-center space-y-4">
+                    <h3 class="text-lg font-bold text-gray-800">পরিবর্তন নিশ্চিত করুন</h3>
+                    <p class="text-sm text-gray-600">সেটিংস সেভ করার জন্য আপনার অ্যাডমিন পিন দিন।</p>
+                    <input type="password" id="admin-pin-confirm" placeholder="আপনার পিন দিন" maxlength="4" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cashpoint-pink text-center">
+                    <div class="flex space-x-2">
+                        <button id="cancel-save-btn" class="flex-1 py-2 bg-gray-400 text-white font-bold rounded-xl shadow-lg">বাতিল</button>
+                        <button id="final-save-btn" class="flex-1 py-2 bg-cashpoint-pink text-white font-bold rounded-xl shadow-lg">নিশ্চিত করুন</button>
+                    </div>
+                </div>
+            `;
+            
+            modal.classList.remove('hidden');
+            setTimeout(() => modalContent.classList.add('scale-100'), 10);
+
+            document.getElementById('final-save-btn').onclick = () => handleFinalSettingsSave(newConfig);
+            const closeModal = () => {
+                modalContent.classList.remove('scale-100');
+                setTimeout(() => modal.classList.add('hidden'), 200);
+            };
+            document.getElementById('cancel-save-btn').onclick = closeModal;
+            modal.addEventListener('click', (e) => {
+                if (e.target.id === 'transaction-details-modal') {
+                    closeModal();
+                }
+            }, { once: true });
+        }
+
+        // ❗️❗️ এই নতুন ফাংশনটি যোগ করা হয়েছে ❗️❗️
+        async function handleFinalSettingsSave(newConfig) {
+            const pin = document.getElementById('admin-pin-confirm').value;
+            if (!pin || pin.length !== 4) {
+                showMessage("দয়া করে ৪-সংখ্যার পিন দিন।");
+                return;
+            }
+            
+            showLoading(true);
+            document.getElementById('transaction-details-modal').classList.add('hidden');
+
             try {
+                const adminDocRef = doc(db, `artifacts/${appId}/users/${currentUser.uid}`);
+                const adminDoc = await getDoc(adminDocRef);
+
+                if (!adminDoc.exists() || !adminDoc.data().isAdmin) {
+                    throw new Error("আপনার অ্যাডমিন প্রোফাইল পাওয়া যায়নি।");
+                }
+
+                const adminData = adminDoc.data();
+                if (hashPin(pin) !== adminData.pinHash) {
+                    throw new Error("আপনার পিন সঠিক নয়।");
+                }
+
+                // পিন সঠিক হলে সেটিংস সেভ করুন
                 const configDocRef = doc(db, `artifacts/${appId}/admin_config/settings`);
                 await setDoc(configDocRef, newConfig, { merge: true });
+                
                 showMessage("সেটিংস সফলভাবে আপডেট হয়েছে।");
+
             } catch (error) {
-                console.error("Error saving settings:", error);
-                showMessage("সেটিং সেভ করতে সমস্যা হয়েছে।");
+                showMessage(error.message);
             } finally {
                 showLoading(false);
             }
@@ -1989,10 +2058,9 @@
             }
         }
         
-        // ❗️❗️ অ্যাডমিন প্যানেলের সেটিংস মুছে যাওয়ার বাগ এখানে ঠিক করা হয়েছে ❗️❗️
         async function listenForConfigUpdates() {
             const configDocRef = doc(db, `artifacts/${appId}/admin_config/settings`);
-
+            
             onSnapshot(configDocRef, (doc) => {
                 if (doc.exists()) {
                     appConfig = { ...appConfig, ...doc.data() };
