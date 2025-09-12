@@ -1400,8 +1400,8 @@
                 showLoading(false);
             }
         }
-        
-        // Handle user profile data saving - এটি পরিবর্তিত ফাংশন
+
+        // Handle user profile data saving
         async function handleProfileSave(event) {
             event.preventDefault();
             const name = document.getElementById('name').value;
@@ -1435,29 +1435,18 @@
                 }
                 
                 const docRef = doc(db, `artifacts/${appId}/users/${currentUser.uid}`);
-                
-                // --- সমাধান শুরু ---
-                // ধাপ ১: ব্যবহারকারীর বর্তমান ডেটা পড়ুন
-                const userDoc = await getDoc(docRef);
-                if (!userDoc.exists()) {
-                    // এটি হওয়া উচিত নয় যদি ব্যবহারকারী লগইন করে থাকে, কিন্তু এটি একটি ভালো নিরাপত্তা পরীক্ষা
-                    throw new Error("User document could not be found!");
-                }
-                const existingData = userDoc.data();
-                // --- সমাধান समाप्त ---
-
                 const pinHash = hashPin(pin);
 
-                // ধাপ ২: আপডেটের সময় পুরনো balance এবং isAdmin মান অন্তর্ভুক্ত করুন
-                await setDoc(docRef, {
+                // শুধুমাত্র যে ফিল্ডগুলো পরিবর্তন করা প্রয়োজন, সেগুলো এখানে দিন
+                const updatedData = {
                     name: name,
                     dob: dob,
                     mobile: mobile,
-                    pinHash: pinHash,
-                    email: currentUser.email,
-                    balance: existingData.balance, // এই লাইনটি যোগ করা হয়েছে
-                    isAdmin: existingData.isAdmin  // এই লাইনটি যোগ করা হয়েছে
-                }, { merge: true });
+                    pinHash: pinHash
+                };
+
+                // setDoc এর পরিবর্তে updateDoc ব্যবহার করুন
+                await updateDoc(docRef, updatedData);
                 
                 showMessage("প্রোফাইল সফলভাবে সংরক্ষণ করা হয়েছে!");
 
