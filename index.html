@@ -1040,7 +1040,8 @@
             });
         }
 
-        // Step 2: Find the recipient and render the amount form
+        // ✅✅✅ চূড়ান্ত সংশোধিত কোড ✅✅✅
+        // এই ফাংশনটি এখন সরাসরি Firestore না খুঁজে আপনার বানানো /api/findRecipient এ অনুরোধ পাঠাবে
         async function findRecipientAndRenderFormStep2() {
             const recipientId = document.getElementById('recipient-input').value.trim();
             const recipientInfoDiv = document.getElementById('recipient-info');
@@ -1052,56 +1053,43 @@
             }
         
             showLoading(true);
+            recipientInfoDiv.textContent = ''; // আগের বার্তা মুছে ফেলুন
+            
             try {
-                const usersCollectionRef = collection(db, `artifacts/${appId}/users/`);
-                let recipientDocSnap = null;
-        
-                if (recipientId.includes('@')) {
-                    // Case 1: Search by email
-                    const qEmail = query(usersCollectionRef, where("email", "==", recipientId));
-                    const querySnapshotEmail = await getDocs(qEmail);
-                    if (!querySnapshotEmail.empty) {
-                        recipientDocSnap = querySnapshotEmail.docs[0];
-                    }
-                } else if (!isNaN(recipientId) && recipientId.length > 5) {
-                    // Case 2: Search by mobile number
-                    const qMobile = query(usersCollectionRef, where("mobile", "==", recipientId));
-                    const querySnapshotMobile = await getDocs(qMobile);
-                    if (!querySnapshotMobile.empty) {
-                        recipientDocSnap = querySnapshotMobile.docs[0];
-                    }
-                } else {
-                    // Case 3: Assume it's a UID and search directly
-                    const docRef = doc(db, `artifacts/${appId}/users/${recipientId}`);
-                    const docSnap = await getDoc(docRef);
-                    if (docSnap.exists()) {
-                        recipientDocSnap = docSnap;
-                    }
+                const user = auth.currentUser;
+                if (!user) {
+                    throw new Error("আপনাকে লগইন করতে হবে।");
                 }
-        
-                if (recipientDocSnap) {
-                    const recipientUid = recipientDocSnap.id;
-                    const recipientProfileData = recipientDocSnap.data();
+                const token = await user.getIdToken();
 
-                    if (recipientUid === currentUser.uid) {
-                        showMessage("আপনি নিজের কাছে টাকা পাঠাতে পারবেন না।");
-                        showLoading(false);
-                        return;
-                    }
-                    recipientData = { uid: recipientUid, name: recipientProfileData.name, mobile: recipientProfileData.mobile };
-                    recipientInfoDiv.textContent = `প্রাপক: ${recipientData.name} (${recipientData.mobile})`;
-                    recipientInfoDiv.classList.add('text-green-600');
-                    renderSendMoneyFormStep3(recipientData);
-                } else {
-                    recipientInfoDiv.textContent = 'প্রাপককে খুঁজে পাওয়া যায়নি।';
-                    recipientInfoDiv.classList.add('text-red-600');
-                    findRecipientBtn.disabled = true;
-                    findRecipientBtn.classList.remove('bg-cashpoint-pink');
-                    findRecipientBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
+                const response = await fetch('/api/findRecipient', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ recipientId: recipientId })
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(result.message);
                 }
+
+                // সার্ভার থেকে পাওয়া তথ্য recipientData তে সেভ করুন
+                recipientData = { uid: result.uid, name: result.name, mobile: result.mobile };
+                
+                // UI তে প্রাপকের নাম দেখান এবং পরের ধাপে যান
+                recipientInfoDiv.textContent = `প্রাপক: ${recipientData.name} (${recipientData.mobile})`;
+                recipientInfoDiv.classList.remove('text-red-600');
+                recipientInfoDiv.classList.add('text-green-600');
+                renderSendMoneyFormStep3(recipientData);
+
             } catch (error) {
                 console.error("Error finding recipient:", error);
-                recipientInfoDiv.textContent = 'প্রাপক খোঁজার সময় একটি ত্রুটি হয়েছে।';
+                recipientInfoDiv.textContent = error.message || 'প্রাপক খোঁজার সময় একটি ত্রুটি হয়েছে।';
+                recipientInfoDiv.classList.remove('text-green-600');
                 recipientInfoDiv.classList.add('text-red-600');
                 findRecipientBtn.disabled = true;
                 findRecipientBtn.classList.remove('bg-cashpoint-pink');
@@ -1400,8 +1388,7 @@
             }
         }
 
-        // ✅✅✅ চূড়ান্ত সংশোধিত কোড ✅✅✅
-        // এই ফাংশনটি এখন সরাসরি Firestore এডিট না করে আপনার বানানো /api/updateProfile এ অনুরোধ পাঠাবে
+        // Handle user profile data saving
         async function handleProfileSave(event) {
             event.preventDefault();
             const name = document.getElementById('name').value;
@@ -1415,7 +1402,7 @@
             }
 
             showLoading(true);
-
+            
             try {
                 const user = auth.currentUser;
                 if (!user) {
@@ -1441,15 +1428,14 @@
                 const result = await response.json();
 
                 if (!response.ok) {
-                    // সার্ভার থেকে আসা error বার্তাটি দেখান
                     throw new Error(result.message || 'একটি অজানা সমস্যা হয়েছে।');
                 }
 
-                showMessage(result.message); // সার্ভার থেকে আসা সফল বার্তাটি দেখান
+                showMessage(result.message);
 
             } catch (error) {
                 console.error("Error saving profile:", error);
-                showMessage(error.message); // এখানেও error বার্তাটি দেখান
+                showMessage(error.message);
             } finally {
                 showLoading(false);
             }
