@@ -14,7 +14,7 @@ if (!admin.apps.length) {
 
 const db = admin.firestore();
 
-// ❗️❗️ আপনার পছন্দের সঠিক ট্রানজেকশন আইডি তৈরির ফাংশনটি এখানে যোগ করা হয়েছে ❗️❗️
+// আপনার পছন্দের সঠিক ট্রানজেকশন আইডি তৈরির ফাংশন
 function generateTransactionId() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let result = '';
@@ -69,25 +69,27 @@ export default async function handler(req, res) {
             const senderDoc = await transaction.get(senderDocRef);
             const recipientDoc = await transaction.get(recipientDocRef);
 
-            if (!senderDoc.exists() || !recipientDoc.exists()) {
-                throw new Error("Sender or recipient not found.");
+            // ❗️❗️❗️ এখানেই ভুলটি সংশোধন করা হয়েছে (.exists() এর বদলে .exists) ❗️❗️❗️
+            if (!senderDoc.exists || !recipientDoc.exists) {
+                throw new Error("প্রাপককে খুঁজে পাওয়া যায়নি।");
             }
 
             const senderData = senderDoc.data();
             const recipientData = recipientDoc.data();
 
             if (hashPin(pin) !== senderData.pinHash) {
-                throw new Error("Incorrect PIN provided.");
+                throw new Error("আপনার পিন সঠিক নয়।");
             }
 
+            // সার্ভার থেকে চার্জের পরিমাণ লোড করা হচ্ছে
             const configDoc = await getDoc(doc(db, `artifacts/${process.env.APP_ID}/admin_config/settings`));
-            const chargeConfig = configDoc.exists() ? configDoc.data().charges.send : { percentage: 2, fixed: 5 };
+            const chargeConfig = configDoc.exists() ? configDoc.data().charges.send : { percentage: 2, fixed: 5 }; // Default charge if not set
             
             const charge = (amount * chargeConfig.percentage / 100) + chargeConfig.fixed;
             const totalDeduction = amount + charge;
 
             if ((senderData.balance || 0) < totalDeduction) {
-                throw new Error("Insufficient balance.");
+                throw new Error("আপনার অ্যাকাউন্টে পর্যাপ্ত ব্যালেন্স নেই।");
             }
 
             const newSenderBalance = senderData.balance - totalDeduction;
@@ -96,7 +98,6 @@ export default async function handler(req, res) {
             transaction.update(senderDocRef, { balance: newSenderBalance });
             transaction.update(recipientDocRef, { balance: newRecipientBalance });
 
-            // ❗️❗️ এখানে ভুল ফরম্যাটের বদলে সঠিক ফাংশনটি কল করা হয়েছে ❗️❗️
             const transactionId = generateTransactionId();
             
             const senderTxRef = senderDocRef.collection("transactions").doc();
@@ -126,6 +127,7 @@ export default async function handler(req, res) {
 
     } catch (error) {
         console.error("API Error:", error.message);
-        return res.status(500).json({ message: error.message || 'An internal error occurred.' });
+        // ব্যবহারকারীকে দেখানোর জন্য সহজবোধ্য মেসেজ পাঠানো হচ্ছে
+        return res.status(400).json({ message: error.message || 'লেনদেন ব্যর্থ হয়েছে। আবার চেষ্টা করুন।' });
     }
 }
