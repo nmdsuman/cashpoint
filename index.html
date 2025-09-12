@@ -1517,9 +1517,19 @@
                     <button class="status-btn py-1 px-3 text-xs font-medium rounded-full bg-gray-300 text-gray-700" data-status="completed">সম্পূর্ণ</button>
                     <button class="status-btn py-1 px-3 text-xs font-medium rounded-full bg-gray-300 text-gray-700" data-status="rejected">বাতিল</button>
                 </div>
-                <div id="requests-list" class="space-y-3">
-                    </div>
+                <div id="search-bar-container" class="mt-4"></div>
+                <div id="requests-list" class="space-y-3 mt-4">
+                </div>
             `;
+
+            if (requestType === 'add-money') {
+                document.getElementById('search-bar-container').innerHTML = `
+                    <input type="text" id="trx-search-input" placeholder="TrxID দিয়ে সার্চ করুন..." class="w-full p-2 border border-gray-300 rounded-md focus:ring-cashpoint-pink focus:border-cashpoint-pink">
+                `;
+                document.getElementById('trx-search-input').addEventListener('input', () => {
+                    loadRequests(requestType, currentStatus);
+                });
+            }
 
             let currentStatus = 'pending';
             
@@ -1531,6 +1541,12 @@
                     });
                     e.target.classList.add('bg-cashpoint-pink', 'text-white');
                     currentStatus = e.target.dataset.status;
+
+                    const searchInput = document.getElementById('trx-search-input');
+                    if (searchInput) {
+                        searchInput.value = '';
+                    }
+
                     loadRequests(requestType, currentStatus);
                 });
             });
@@ -1718,8 +1734,18 @@
             }
             requestsListEl.innerHTML = '<div class="text-center p-5"><div class="animate-spin rounded-full h-8 w-8 border-4 border-cashpoint-pink border-t-transparent mx-auto"></div></div>';
             
+            const searchInput = document.getElementById('trx-search-input');
+            const searchTerm = searchInput ? searchInput.value.trim() : '';
+
             const collectionName = type === 'add-money' ? 'add_money_requests' : 'money_transfer_requests';
-            const q = query(collection(db, `artifacts/${appId}/${collectionName}`), where('status', '==', status));
+            const collectionRef = collection(db, `artifacts/${appId}/${collectionName}`);
+            
+            let q;
+            if (type === 'add-money' && searchTerm) {
+                q = query(collectionRef, where('txId', '==', searchTerm));
+            } else {
+                q = query(collectionRef, where('status', '==', status));
+            }
             
             try {
                 const querySnapshot = await getDocs(q);
@@ -1735,7 +1761,11 @@
                 requestsListEl.innerHTML = ''; // Clear spinner
 
                 if (requests.length === 0) {
-                    requestsListEl.innerHTML = `<p class="text-center text-gray-500 mt-4">এই মুহূর্তে কোনো ${status === 'pending' ? 'অপেক্ষমাণ' : status === 'completed' ? 'সম্পূর্ণ' : 'বাতিল'} রিকোয়েস্ট নেই।</p>`;
+                    if (searchTerm) {
+                        requestsListEl.innerHTML = `<p class="text-center text-gray-500 mt-4">এই TrxID দিয়ে কোনো অনুরোধ খুঁজে পাওয়া যায়নি।</p>`;
+                    } else {
+                        requestsListEl.innerHTML = `<p class="text-center text-gray-500 mt-4">এই মুহূর্তে কোনো ${status === 'pending' ? 'অপেক্ষমাণ' : status === 'completed' ? 'সম্পূর্ণ' : 'বাতিল'} রিকোয়েস্ট নেই।</p>`;
+                    }
                 } else {
                     requests.forEach(request => {
                         const requestEl = document.createElement('div');
@@ -1765,7 +1795,9 @@
                         }
                         
                         let buttons = '';
-                        if (status === 'pending') {
+                        // Always show buttons if searching for a pending request, regardless of the filter
+                        const currentStatus = searchTerm ? request.status : status;
+                        if (currentStatus === 'pending') {
                             buttons = `
                                 <div class="flex space-x-2 pt-3">
                                     <button class="accept-btn flex-1 bg-green-500 text-white px-3 py-1.5 text-xs font-bold rounded-md hover:bg-green-600" data-id="${request.id}" data-type="${type}" data-user-id="${request.userId}" data-amount="${request.amount}" data-transaction-ref="${request.transactionRef || ''}">গ্রহণ</button>
@@ -1878,7 +1910,10 @@
                     showMessage("ট্রান্সফার রিকোয়েস্ট বাতিল করা হয়েছে এবং টাকা ফেরত দেওয়া হয়েছে।");
                 }
                 
-                loadRequests(requestType, 'pending');
+                // Refresh the current view
+                const activeStatusBtn = document.querySelector('.status-btn.active');
+                const currentStatus = activeStatusBtn ? activeStatusBtn.dataset.status : 'pending';
+                loadRequests(requestType, currentStatus);
 
             } catch (error) {
                 console.error("Error handling request action:", error);
