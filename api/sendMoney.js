@@ -1,7 +1,6 @@
 import admin from 'firebase-admin';
 
 // Vercel Environment Variables থেকে আপনার সার্ভিস অ্যাকাউন্ট কী লোড করুন
-// এই কী Base64 ফরম্যাটে Vercel ড্যাশবোর্ডে সেট করতে হবে
 const serviceAccount = JSON.parse(
     Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_BASE64, 'base64').toString('utf-8')
 );
@@ -14,6 +13,16 @@ if (!admin.apps.length) {
 }
 
 const db = admin.firestore();
+
+// ❗️❗️ আপনার পছন্দের সঠিক ট্রানজেকশন আইডি তৈরির ফাংশনটি এখানে যোগ করা হয়েছে ❗️❗️
+function generateTransactionId() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    for (let i = 0; i < 9; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+}
 
 // ক্লায়েন্ট-সাইডের সাথে মিল রেখে পিন হ্যাশিং ফাংশন
 function hashPin(pin) {
@@ -33,7 +42,6 @@ export default async function handler(req, res) {
     }
 
     try {
-        // ক্লায়েন্টের পাঠানো Authorization হেডার থেকে টোকেন নিন
         const { authorization } = req.headers;
         if (!authorization || !authorization.startsWith('Bearer ')) {
             return res.status(401).json({ message: 'Unauthorized: Missing token.' });
@@ -41,11 +49,10 @@ export default async function handler(req, res) {
 
         const token = authorization.split('Bearer ')[1];
         const decodedToken = await admin.auth().verifyIdToken(token);
-        const senderUid = decodedToken.uid; // এটি ভেরিফাইড ইউজার আইডি
+        const senderUid = decodedToken.uid;
 
         const { recipientUid, amount, pin } = req.body;
 
-        // ইনপুট ভ্যালিডেশন
         if (!recipientUid || typeof amount !== 'number' || amount <= 0 || !pin || pin.length !== 4) {
             return res.status(400).json({ message: 'Invalid input provided.' });
         }
@@ -54,51 +61,64 @@ export default async function handler(req, res) {
             return res.status(400).json({ message: 'You cannot send money to yourself.' });
         }
         
-        const senderDocRef = db.collection('artifacts/default-app-id/users').doc(senderUid); // আপনার appId ব্যবহার করুন
-        const recipientDocRef = db.collection('artifacts/default-app-id/users').doc(recipientUid); // আপনার appId ব্যবহার করুন
+        const senderDocRef = db.collection(`artifacts/${process.env.APP_ID}/users`).doc(senderUid);
+        const recipientDocRef = db.collection(`artifacts/${process.env.APP_ID}/users`).doc(recipientUid);
 
         // Firestore Transaction ব্যবহার করে নিরাপদ লেনদেন
         await db.runTransaction(async (transaction) => {
             const senderDoc = await transaction.get(senderDocRef);
             const recipientDoc = await transaction.get(recipientDocRef);
 
-            if (!senderDoc.exists || !recipientDoc.exists) {
+            if (!senderDoc.exists() || !recipientDoc.exists()) {
                 throw new Error("Sender or recipient not found.");
             }
 
             const senderData = senderDoc.data();
             const recipientData = recipientDoc.data();
 
-            // সার্ভারে পিন এবং ব্যালেন্স চেক
             if (hashPin(pin) !== senderData.pinHash) {
                 throw new Error("Incorrect PIN provided.");
             }
 
-            const charge = (amount * 0.02) + 5; // উদাহরণ: 2% + 5 টাকা চার্জ
+            const configDoc = await getDoc(doc(db, `artifacts/${process.env.APP_ID}/admin_config/settings`));
+            const chargeConfig = configDoc.exists() ? configDoc.data().charges.send : { percentage: 2, fixed: 5 };
+            
+            const charge = (amount * chargeConfig.percentage / 100) + chargeConfig.fixed;
             const totalDeduction = amount + charge;
 
             if ((senderData.balance || 0) < totalDeduction) {
                 throw new Error("Insufficient balance.");
             }
 
-            // ব্যালেন্স আপডেট
             const newSenderBalance = senderData.balance - totalDeduction;
             const newRecipientBalance = (recipientData.balance || 0) + amount;
             
             transaction.update(senderDocRef, { balance: newSenderBalance });
             transaction.update(recipientDocRef, { balance: newRecipientBalance });
 
-            // লেনদেনের লগ তৈরি করা (ঐচ্ছিক কিন্তু জরুরি)
-            const transactionId = `TXN_${Date.now()}`;
+            // ❗️❗️ এখানে ভুল ফরম্যাটের বদলে সঠিক ফাংশনটি কল করা হয়েছে ❗️❗️
+            const transactionId = generateTransactionId();
+            
             const senderTxRef = senderDocRef.collection("transactions").doc();
             transaction.set(senderTxRef, {
-                type: 'send', amount, charge, description: `Sent to ${recipientData.name}`, 
-                timestamp: admin.firestore.FieldValue.serverTimestamp(), status: 'completed', transactionId
+                type: 'send', 
+                amount, 
+                charge, 
+                description: `Sent to ${recipientData.name}`, 
+                timestamp: admin.firestore.FieldValue.serverTimestamp(), 
+                status: 'completed', 
+                transactionId
             });
+
             const recipientTxRef = recipientDocRef.collection("transactions").doc();
             transaction.set(recipientTxRef, {
-                type: 'receive', amount, charge: 0, description: `Received from ${senderData.name}`,
-                timestamp: admin.firestore.FieldValue.serverTimestamp(), status: 'received', transactionId
+                type: 'receive', 
+                amount, 
+                charge: 0, 
+                description: `Received from ${senderData.name}`,
+                timestamp: admin.firestore.FieldValue.serverTimestamp(), 
+                status: 'received', 
+                transactionId
             });
         });
 
