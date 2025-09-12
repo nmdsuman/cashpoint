@@ -611,7 +611,7 @@
             }
         }
         
-        // Show transaction details in a modal
+        // ❗️❗️ এই ফাংশনটি আপনার অনুরোধ অনুযায়ী আগের ডিজাইনে ফেরত আনা হয়েছে ❗️❗️
         function showTransactionDetails(tx, title, amountPrefix, color) {
             const modal = document.getElementById('transaction-details-modal');
             const modalContent = document.getElementById('modal-content');
@@ -628,30 +628,38 @@
             }
 
             modalContent.innerHTML = `
-                <div class="flex justify-between items-center pb-2 border-b">
-                    <h3 class="text-lg font-bold">${title}</h3>
-                    <p class="font-bold ${statusColor}">${statusText}</p>
+                <div class="flex justify-between items-center pb-3 border-b mb-3">
+                    <h3 class="text-xl font-semibold">${title}</h3>
+                    <p class="font-semibold ${statusColor}">${statusText}</p>
                 </div>
-                <div class="flex justify-between items-center text-center">
-                    <p class="text-3xl font-bold ${color}">${amountPrefix}${tx.amount.toFixed(2)}</p>
+                
+                <div class="text-center mb-4">
+                    <p class="text-4xl font-bold ${color}">${amountPrefix}${tx.amount.toFixed(2)}</p>
                 </div>
-                <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm pt-2">
-                    <p class="text-gray-500">বিস্তারিত:</p>
-                    <p class="text-right font-semibold">${tx.description}</p>
-                    
-                    <p class="text-gray-500">সময়:</p>
-                    <p class="text-right font-semibold">${time}, ${dateStr}</p>
-                    
-                    <p class="text-gray-500">চার্জ:</p>
-                    <p class="text-right font-semibold">৳ ${(tx.charge || 0).toFixed(2)}</p>
-                    
-                    <p class="text-gray-500">ট্রানজেকশন আইডি:</p>
-                    <p class="text-right font-semibold font-mono flex items-center justify-end">
-                        ${tx.transactionId || 'N/A'}
-                        <i class="fas fa-copy text-xs text-cashpoint-pink ml-2 cursor-pointer" onclick="copyToClipboard('${tx.transactionId}')"></i>
-                    </p>
+
+                <div class="space-y-2 text-sm">
+                    <div class="flex justify-between">
+                        <p class="text-gray-500">বিস্তারিত:</p>
+                        <p class="font-semibold text-gray-800">${tx.description}</p>
+                    </div>
+                    <div class="flex justify-between">
+                        <p class="text-gray-500">সময়:</p>
+                        <p class="font-semibold text-gray-800">${time}, ${dateStr}</p>
+                    </div>
+                    <div class="flex justify-between">
+                        <p class="text-gray-500">চার্জ:</p>
+                        <p class="font-semibold text-gray-800">৳ ${(tx.charge || 0).toFixed(2)}</p>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <p class="text-gray-500">ট্রানজেকশন আইডি:</p>
+                        <div class="flex items-center">
+                            <p class="font-semibold font-mono text-gray-800">${tx.transactionId || 'N/A'}</p>
+                            <i class="fas fa-copy text-xs text-cashpoint-pink ml-2 cursor-pointer" onclick="copyToClipboard('${tx.transactionId}')"></i>
+                        </div>
+                    </div>
                 </div>
-                 <button id="close-modal-btn" class="absolute top-1 right-2 text-gray-400 hover:text-gray-800 text-2xl font-bold">&times;</button>
+
+                <button id="close-modal-btn" class="absolute top-2 right-3 text-gray-400 hover:text-gray-800 text-2xl font-bold">&times;</button>
             `;
 
             modal.classList.remove('hidden');
@@ -1205,7 +1213,7 @@
             return hash;
         }
 
-        // Step 5: Handle the actual transaction
+        // ❗️❗️ নিরাপত্তা বাড়ানোর জন্য এই ফাংশনটি পরিবর্তন করা হয়েছে (Vercel API ব্যবহার করে) ❗️❗️
         async function handleSendMoneyTransaction(recipient, amount) {
             const pin = document.getElementById('pin-input').value;
             if (!pin || pin.length !== 4) {
@@ -1215,72 +1223,38 @@
 
             showLoading(true);
 
-            const senderDocRef = doc(db, `artifacts/${appId}/users/${currentUser.uid}`);
-            const recipientDocRef = doc(db, `artifacts/${appId}/users/${recipient.uid}`);
-            const transactionId = generateTransactionId();
-            
-            const chargeConfig = appConfig.charges.send;
-            const charge = (amount * chargeConfig.percentage / 100) + chargeConfig.fixed;
-            const totalDeduction = amount + charge;
-
             try {
-                await runTransaction(db, async (transaction) => {
-                    const senderDoc = await transaction.get(senderDocRef);
-                    if (!senderDoc.exists()) {
-                        throw new Error("আপনার প্রোফাইল খুঁজে পাওয়া যায়নি।");
-                    }
+                const user = auth.currentUser;
+                if (!user) {
+                    throw new Error("লেনদেন করার জন্য আপনাকে লগইন করতে হবে।");
+                }
 
-                    const senderData = senderDoc.data();
-                    const currentBalance = senderData.balance || 0;
-                    const savedPinHash = senderData.pinHash;
+                const token = await user.getIdToken();
 
-                    if (hashPin(pin) !== savedPinHash) {
-                        throw new Error("ভুল পিন।");
-                    }
-                    
-                    if (currentBalance < totalDeduction) {
-                        throw new Error("অপর্যাপ্ত ব্যালেন্স।");
-                    }
-
-                    const recipientDoc = await transaction.get(recipientDocRef);
-                    const recipientBalance = recipientDoc.exists() ? recipientDoc.data().balance || 0 : 0;
-
-                    const newSenderBalance = currentBalance - totalDeduction;
-                    const newRecipientBalance = recipientBalance + amount;
-
-                    transaction.update(senderDocRef, { balance: newSenderBalance });
-                    transaction.update(recipientDocRef, { balance: newRecipientBalance });
-
-                    // Add transaction records within the atomic operation
-                    const senderTxCollectionRef = collection(db, `artifacts/${appId}/users/${currentUser.uid}/transactions`);
-                    const newSenderTxDocRef = doc(senderTxCollectionRef);
-                    transaction.set(newSenderTxDocRef, {
-                        type: 'send',
+                const response = await fetch('/api/sendMoney', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        recipientUid: recipient.uid,
                         amount: amount,
-                        charge: charge,
-                        description: `Send Money to ${recipient.name} (${recipient.mobile})`,
-                        timestamp: serverTimestamp(),
-                        status: 'completed',
-                        transactionId: transactionId
-                    });
-
-                    const recipientTxCollectionRef = collection(db, `artifacts/${appId}/users/${recipient.uid}/transactions`);
-                    const newRecipientTxDocRef = doc(recipientTxCollectionRef);
-                    transaction.set(newRecipientTxDocRef, {
-                        type: 'receive',
-                        amount: amount,
-                        charge: 0,
-                        description: `Receive Money from ${senderData.name} (${senderData.mobile})`,
-                        timestamp: serverTimestamp(),
-                        status: 'received',
-                        transactionId: transactionId
-                    });
+                        pin: pin
+                    })
                 });
 
-                showMessage(`৳ ${amount} সফলভাবে ${recipient.name}-কে পাঠানো হয়েছে!`);
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(result.message || 'একটি অজানা সমস্যা হয়েছে।');
+                }
+
+                showMessage(result.message);
+
             } catch (error) {
                 console.error("Transaction failed:", error);
-                showMessage(error.message || "লেনদেন ব্যর্থ হয়েছে।");
+                showMessage(error.message);
             } finally {
                 showLoading(false);
                 setTimeout(() => {
@@ -1288,7 +1262,6 @@
                     onSnapshot(profileDocRef, (docSnap) => {
                         const profileData = docSnap.exists() ? docSnap.data() : { name: 'ব্যবহারকারী', mobile: '', dob: '', balance: 0.00 };
                         renderDashboard(profileData);
-                        renderSidebar(profileData);
                     });
                 }, 2000);
             }
@@ -2016,24 +1989,16 @@
             }
         }
         
+        // ❗️❗️ অ্যাডমিন প্যানেলের সেটিংস মুছে যাওয়ার বাগ এখানে ঠিক করা হয়েছে ❗️❗️
         async function listenForConfigUpdates() {
             const configDocRef = doc(db, `artifacts/${appId}/admin_config/settings`);
-            
-            const docSnap = await getDoc(configDocRef);
-            if (docSnap.exists()) {
-                 appConfig = { ...appConfig, ...docSnap.data() };
-            } else {
-                 try {
-                    await setDoc(configDocRef, appConfig); // Create with default values
-                } catch (error) {
-                    console.error("Failed to create default app config:", error);
-                }
-            }
-
 
             onSnapshot(configDocRef, (doc) => {
                 if (doc.exists()) {
                     appConfig = { ...appConfig, ...doc.data() };
+                    console.log("Admin config loaded from Firestore.");
+                } else {
+                    console.log("No admin config found in Firestore. Using local defaults until admin saves settings.");
                 }
             }, (error) => {
                 console.error("Error listening for config updates:", error);
