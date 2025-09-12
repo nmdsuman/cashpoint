@@ -14,7 +14,7 @@ if (!admin.apps.length) {
 
 const db = admin.firestore();
 
-// আপনার পছন্দের সঠিক ট্রানজেকশন আইডি তৈরির ফাংশন
+// আপনার পছন্দের সঠিক ৯ ডিজিটের ট্রানজেকশন আইডি তৈরির ফাংশন
 function generateTransactionId() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let result = '';
@@ -61,15 +61,15 @@ export default async function handler(req, res) {
             return res.status(400).json({ message: 'You cannot send money to yourself.' });
         }
         
+        // Vercel Environment Variable থেকে APP_ID ব্যবহার করা হচ্ছে
         const senderDocRef = db.collection(`artifacts/${process.env.APP_ID}/users`).doc(senderUid);
         const recipientDocRef = db.collection(`artifacts/${process.env.APP_ID}/users`).doc(recipientUid);
 
-        // Firestore Transaction ব্যবহার করে নিরাপদ লেনদেন
         await db.runTransaction(async (transaction) => {
             const senderDoc = await transaction.get(senderDocRef);
             const recipientDoc = await transaction.get(recipientDocRef);
 
-            // ❗️❗️❗️ এখানেই ভুলটি সংশোধন করা হয়েছে (.exists() এর বদলে .exists) ❗️❗️❗️
+            // .exists() এর বদলে .exists ব্যবহার করে বাগ ফিক্স করা হয়েছে
             if (!senderDoc.exists || !recipientDoc.exists) {
                 throw new Error("প্রাপককে খুঁজে পাওয়া যায়নি।");
             }
@@ -82,8 +82,9 @@ export default async function handler(req, res) {
             }
 
             // সার্ভার থেকে চার্জের পরিমাণ লোড করা হচ্ছে
-            const configDoc = await getDoc(doc(db, `artifacts/${process.env.APP_ID}/admin_config/settings`));
-            const chargeConfig = configDoc.exists() ? configDoc.data().charges.send : { percentage: 2, fixed: 5 }; // Default charge if not set
+            const configDocRef = doc(db, `artifacts/${process.env.APP_ID}/admin_config/settings`);
+            const configDoc = await transaction.get(configDocRef); // transaction.get ব্যবহার করা ভালো
+            const chargeConfig = configDoc.exists ? configDoc.data().charges.send : { percentage: 2, fixed: 5 };
             
             const charge = (amount * chargeConfig.percentage / 100) + chargeConfig.fixed;
             const totalDeduction = amount + charge;
@@ -97,7 +98,8 @@ export default async function handler(req, res) {
             
             transaction.update(senderDocRef, { balance: newSenderBalance });
             transaction.update(recipientDocRef, { balance: newRecipientBalance });
-
+            
+            // আপনার পছন্দের ৯ ডিজিটের আইডি জেনারেট করা হচ্ছে
             const transactionId = generateTransactionId();
             
             const senderTxRef = senderDocRef.collection("transactions").doc();
@@ -127,7 +129,6 @@ export default async function handler(req, res) {
 
     } catch (error) {
         console.error("API Error:", error.message);
-        // ব্যবহারকারীকে দেখানোর জন্য সহজবোধ্য মেসেজ পাঠানো হচ্ছে
         return res.status(400).json({ message: error.message || 'লেনদেন ব্যর্থ হয়েছে। আবার চেষ্টা করুন।' });
     }
 }
