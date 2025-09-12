@@ -188,8 +188,8 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, updateProfile } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot, collection, query, where, getDocs, getDoc, addDoc, serverTimestamp, deleteDoc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, signInWithCustomToken, signInAnonymously, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, updateProfile } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, runTransaction, collection, query, where, getDocs, getDoc, addDoc, serverTimestamp, deleteDoc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Global variables provided by the environment
         const firebaseConfig = {
@@ -202,6 +202,7 @@
             measurementId: "G-WJXSMFBEE6"
         };
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
         
         // Initialize Firebase
         const app = initializeApp(firebaseConfig);
@@ -251,16 +252,961 @@
         const statementBtnMenu = document.getElementById('statement-btn-menu');
         const adminSettingsMenuBtn = document.getElementById('admin-settings-menu-btn');
         const bottomNav = document.getElementById('bottom-nav');
+
+        // Function to generate a unique transaction ID
+        function generateTransactionId() {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            let result = '';
+            for (let i = 0; i < 9; i++) {
+                result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return result;
+        }
         
-        // ... (The rest of the JS code from the last provided HTML file) ...
-        // NOTE: The entire JS block should be copied here, but to save space, 
-        // I will only show the MODIFIED `handleSendMoneyTransaction` function.
-        // The original file should have the full script.
+        // Function to show a message
+        function showMessage(text, duration = 3000) {
+            messageBox.textContent = text;
+            messageBox.classList.remove('scale-0');
+            messageBox.classList.add('scale-100');
+            setTimeout(() => {
+                messageBox.classList.remove('scale-100');
+                messageBox.classList.add('scale-0');
+            }, duration);
+        }
 
-        // ... (All other functions like renderDashboard, renderStatementPage, etc. are here) ...
+        // Display loading state
+        function showLoading(show) {
+            if (show) {
+                loadingOverlay.classList.remove('hidden');
+            } else {
+                loadingOverlay.classList.add('hidden');
+            }
+        }
 
-        // >> NEW MODIFIED FUNCTION <<
-        // Step 5: Handle the actual transaction by calling the backend API
+        // Handle menu click
+        function handleMenuClick() {
+            menuSidebar.classList.add('open');
+        }
+
+        // Handle clicks outside the menu to close it
+        document.addEventListener('click', (event) => {
+            if (menuSidebar.classList.contains('open') && !menuSidebar.contains(event.target) && !menuBtn.contains(event.target) && !updateInfoBtn.contains(event.target)) {
+                menuSidebar.classList.remove('open');
+            }
+        });
+        
+        // Render the sidebar with user data
+        function renderSidebar(profileData) {
+            const userName = profileData.name || 'ব্যবহারকারী';
+            const userMobile = profileData.mobile || '';
+            const userInitial = userName.charAt(0).toUpperCase();
+
+            sidebarUserName.textContent = userName;
+            sidebarUserMobile.textContent = userMobile;
+            sidebarInitial.textContent = userInitial;
+        }
+
+        // Render the logged-out landing page
+        function renderLandingPage(view = 'email', authMode = 'login') {
+            const googleFormClass = view === 'google' ? 'block' : 'hidden';
+            const emailFormClass = view === 'email' ? 'block' : 'hidden';
+            const buttonText = authMode === 'login' ? 'সাইন ইন' : 'সাইন আপ';
+            const toggleText = authMode === 'login' ? 'অ্যাকাউন্ট নেই? সাইন আপ করুন' : 'ইতিমধ্যেই অ্যাকাউন্ট আছে? সাইন ইন করুন';
+            
+            let nameInput = '';
+            if (authMode === 'signup') {
+                nameInput = `<input type="text" id="name-input" placeholder="আপনার নাম" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cashpoint-pink">`;
+            }
+
+            mainContent.innerHTML = `
+                <div class="flex flex-col items-center justify-center h-full p-4 text-center space-y-8">
+                    <img src="https://placehold.co/150x150/E2136E/FFFFFF?text=CashPoint" alt="CashPoint Logo" class="w-28 h-28 mb-4 rounded-full">
+                    <h2 class="text-3xl font-bold text-gray-800">CashPoint-এ স্বাগতম</h2>
+                    <p class="text-gray-600">আপনার মোবাইল ব্যাংকিং যাত্রা শুরু করুন।</p>
+
+                    <div class="w-full flex justify-center mb-4 space-x-2">
+                        <button id="email-view-btn" class="py-2 px-4 rounded-full font-semibold transition-all duration-200 ${view === 'email' ? 'bg-cashpoint-pink text-white' : 'bg-gray-200 text-gray-700'}">ইমেইল</button>
+                        <button id="google-view-btn" class="py-2 px-4 rounded-full font-semibold transition-all duration-200 ${view === 'google' ? 'bg-cashpoint-pink text-white' : 'bg-gray-200 text-gray-700'}">Google</button>
+                    </div>
+
+                    <div id="email-form-container" class="w-full max-w-xs space-y-4 ${emailFormClass}">
+                        ${nameInput}
+                        <input type="email" id="email-input" placeholder="ইমেইল" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cashpoint-pink">
+                        <input type="password" id="password-input" placeholder="পাসওয়ার্ড" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cashpoint-pink">
+                        <p id="forgot-password-btn" class="text-right text-xs text-cashpoint-pink cursor-pointer hover:underline mb-2">পাসওয়ার্ড ভুলে গেছেন?</p>
+                        <button id="auth-submit-btn" class="w-full py-3 bg-cashpoint-pink text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105">${buttonText}</button>
+                        <p id="toggle-auth-view" class="text-center text-sm text-gray-500 cursor-pointer hover:underline">${toggleText}</p>
+                    </div>
+
+                    <div id="google-form-container" class="w-full max-w-xs space-y-4 ${googleFormClass}">
+                        <button id="google-signin-btn" class="w-full py-3 px-6 bg-cashpoint-pink text-white font-bold rounded-full shadow-lg flex items-center justify-center space-x-2 transition-transform transform hover:scale-105">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M22.000 12.189c0-.756-.068-1.503-.198-2.235h-9.802v4.195h5.592c-.244 1.348-.992 2.484-2.112 3.284v2.704h3.488c2.043-1.892 3.228-4.664 3.228-8.086z"/><path d="M12.000 22.000c2.932 0 5.378-.973 7.168-2.617l-3.488-2.704c-.957.643-2.18.995-3.68.995-2.834 0-5.232-1.92-6.096-4.508h-3.68v2.846c1.782 3.535 5.253 5.988 9.776 5.988z"/><path d="M5.904 13.567c-.201-.643-.314-1.32-.314-2.007s.113-1.364.314-2.007v-2.846h-3.68c-.645 1.288-1.024 2.766-1.024 4.853s.379 3.565 1.024 4.853l3.68-2.846z"/><path d="M12.000 5.492c1.574 0 2.981.54 4.095 1.579l3.078-3.078c-1.874-1.742-4.298-2.822-7.173-2.822-4.523 0-7.994 2.453-9.776 5.988l3.68 2.846c.864-2.588 3.262-4.508 6.096-4.508z"/></svg>
+                            <span>Google দিয়ে সাইন ইন</span>
+                        </button>
+                    </div>
+                    
+                    <p class="mt-4 text-xs text-gray-400">আপনার ব্যক্তিগত ডেটা গোপনীয় রাখা হবে।</p>
+                </div>
+            `;
+            document.getElementById('google-signin-btn').addEventListener('click', handleGoogleSignIn);
+            document.getElementById('email-view-btn').addEventListener('click', () => renderLandingPage('email', authMode));
+            document.getElementById('google-view-btn').addEventListener('click', () => renderLandingPage('google'));
+            
+            const authSubmitBtn = document.getElementById('auth-submit-btn');
+            authSubmitBtn.addEventListener('click', () => {
+                if (authMode === 'login') {
+                    handleEmailSignIn();
+                } else {
+                    handleEmailSignUp();
+                }
+            });
+            document.getElementById('toggle-auth-view').addEventListener('click', () => {
+                const newAuthMode = authMode === 'login' ? 'signup' : 'login';
+                renderLandingPage('email', newAuthMode);
+            });
+            document.getElementById('forgot-password-btn').addEventListener('click', renderForgotPasswordForm);
+        }
+        
+        // Render forgot password form
+        function renderForgotPasswordForm() {
+            mainContent.innerHTML = `
+                <div class="flex flex-col items-center justify-center h-full p-4 text-center space-y-8">
+                    <h2 class="text-3xl font-bold text-gray-800">পাসওয়ার্ড রিসেট করুন</h2>
+                    <p class="text-gray-600">আপনার ইমেইল দিন। আমরা আপনাকে পাসওয়ার্ড রিসেট লিংক পাঠাবো।</p>
+                    <div class="w-full max-w-xs space-y-4">
+                        <input type="email" id="forgot-password-email-input" placeholder="ইমেইল" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cashpoint-pink">
+                        <button id="send-reset-email-btn" class="w-full py-3 bg-cashpoint-pink text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105">রিসেট ইমেইল পাঠান</button>
+                        <button id="back-to-login-btn" class="w-full py-3 bg-gray-400 text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105">ফিরে যান</button>
+                    </div>
+                </div>
+            `;
+            document.getElementById('send-reset-email-btn').addEventListener('click', handleForgotPassword);
+            document.getElementById('back-to-login-btn').addEventListener('click', () => renderLandingPage('email', 'login'));
+        }
+
+        // Handle forgot password logic
+        async function handleForgotPassword() {
+            const email = document.getElementById('forgot-password-email-input').value;
+
+            if (!email) {
+                showMessage("দয়া করে আপনার ইমেইল ঠিকানা দিন।");
+                return;
+            }
+
+            showLoading(true);
+            try {
+                await sendPasswordResetEmail(auth, email);
+                showMessage("পাসওয়ার্ড রিসেট লিংক আপনার ইমেইলে পাঠানো হয়েছে।");
+                document.getElementById('forgot-password-email-input').value = '';
+            } catch (error) {
+                console.error("Forgot password failed:", error);
+                if (error.code === 'auth/invalid-email') {
+                    showMessage("সঠিক ইমেইল ঠিকানা লিখুন।");
+                } else if (error.code === 'auth/user-not-found') {
+                    showMessage("এই ইমেইল ঠিকানার কোনো ব্যবহারকারী খুঁজে পাওয়া যায়নি।");
+                } else {
+                    showMessage("পাসওয়ার্ড রিসেট ব্যর্থ হয়েছে। আবার চেষ্টা করুন।");
+                }
+            } finally {
+                showLoading(false);
+            }
+        }
+        
+        // Render the profile form page
+        function renderUpdateInfoForm(profileData = {}) {
+            const name = profileData.name || '';
+            const dob = profileData.dob || '';
+            const mobile = profileData.mobile || '';
+
+            mainContent.innerHTML = `
+                <div class="flex flex-col items-center h-full p-4 space-y-6">
+                    <h2 class="text-2xl font-bold text-cashpoint-pink mb-4">আপনার প্রোফাইল সম্পূর্ণ করুন</h2>
+                    <form id="profile-form" class="w-full space-y-4">
+                        <input type="text" id="name" placeholder="আপনার নাম" value="${name}" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cashpoint-pink">
+                        <input type="date" id="dob-input" placeholder="আপনার জন্মতারিখ" value="${dob}" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cashpoint-pink">
+                        <input type="tel" inputmode="numeric" oninput="this.value = this.value.replace(/[^0-9]/g, '')" id="mobile" placeholder="আপনার মোবাইল নম্বর" value="${mobile}" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cashpoint-pink">
+                        <input type="password" inputmode="numeric" oninput="this.value = this.value.replace(/[^0-9]/g, '')" id="pin" placeholder="৪-সংখ্যার পিন দিন" maxlength="4" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cashpoint-pink">
+                        <button type="submit" class="w-full py-3 bg-cashpoint-pink text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105">প্রোফাইল সংরক্ষণ করুন</button>
+                        <button id="back-to-dashboard-btn" type="button" class="w-full py-3 bg-gray-400 text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105">ফিরে যান</button>
+                    </form>
+                    <p class="text-sm text-gray-500 mt-4">User ID: <span class="font-mono text-xs break-all">${currentUser.uid}</span></p>
+                </div>
+            `;
+            document.getElementById('profile-form').addEventListener('submit', handleProfileSave);
+            document.getElementById('back-to-dashboard-btn').addEventListener('click', () => {
+                // Return to dashboard without forcing update
+                const profileDocRef = doc(db, `artifacts/${appId}/users/${currentUser.uid}`);
+                onSnapshot(profileDocRef, (docSnap) => {
+                    const profileData = docSnap.exists() ? docSnap.data() : { name: 'ব্যবহারকারী', mobile: '', dob: '', balance: 0.00 };
+                    renderDashboard(profileData);
+                    renderSidebar(profileData);
+                });
+                menuSidebar.classList.remove('open');
+            });
+        }
+
+        // Render the main dashboard
+        function renderDashboard(profileData) {
+            const userName = profileData.name || 'ব্যবহারকারী';
+            const balance = profileData.balance !== undefined ? profileData.balance.toFixed(2) : '0.00';
+
+            // Set header for user view
+            const headerH1 = document.querySelector('#header h1');
+            if (headerH1) headerH1.textContent = 'CashPoint';
+            const userInfoHeader = document.getElementById('user-info-header');
+            if(userInfoHeader){
+                userInfoHeader.innerHTML = `
+                    <span id="header-user-name" class="font-medium text-sm">${userName}</span>
+                `;
+            }
+            
+            renderSidebar(profileData);
+
+            mainContent.innerHTML = `
+                <div class="p-4 flex flex-col space-y-6">
+                    <div class="flex items-center space-x-4">
+                        <div class="w-12 h-12 rounded-full bg-cashpoint-pink flex items-center justify-center text-white text-xl font-bold">${userName.charAt(0)}</div>
+                        <div class="flex-grow">
+                            <h2 class="text-lg font-semibold text-gray-800">${userName}</h2>
+                            <p class="text-sm text-gray-500 flex items-center">
+                                <span class="font-mono text-xs break-all mr-2">ID: ${currentUser.uid.substring(0, 8)}...</span>
+                                <i class="fas fa-copy text-xs cursor-pointer hover:text-cashpoint-pink" onclick="copyToClipboard('${currentUser.uid}')"></i>
+                            </p>
+                        </div>
+                        <i class="fas fa-trophy text-2xl text-yellow-500"></i>
+                    </div>
+
+                    <div class="bg-white rounded-xl p-4 shadow-md flex items-center justify-between">
+                        <div class="flex-grow">
+                            <p class="text-sm text-gray-500">ব্যালেন্স</p>
+                            <span class="text-2xl font-bold text-gray-800">৳ ${balance}</span>
+                        </div>
+                        <button class="bg-cashpoint-pink text-white text-sm font-semibold px-4 py-2 rounded-full shadow-lg transition-transform transform hover:scale-105">
+                            ব্যালেন্স দেখুন
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-4 text-center text-gray-600">
+                        <div id="send-money-btn-container" class="flex flex-col items-center p-3 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
+                            <i class="fas fa-paper-plane text-2xl text-cashpoint-pink mb-2"></i>
+                            <span class="text-xs font-medium">সেন্ড মানি</span>
+                        </div>
+                        <div id="transfer-money-btn-container" class="flex flex-col items-center p-3 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
+                            <i class="fas fa-exchange-alt text-2xl text-cashpoint-pink mb-2"></i>
+                            <span class="text-xs font-medium">টাকা ট্রান্সফার</span>
+                        </div>
+                        <div class="flex flex-col items-center p-3 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
+                            <i class="fas fa-mobile-alt text-2xl text-cashpoint-pink mb-2"></i>
+                            <span class="text-xs font-medium">মোবাইল রিচার্জ</span>
+                        </div>
+                        <div class="flex flex-col items-center p-3 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
+                            <i class="fas fa-hand-holding-usd text-2xl text-cashpoint-pink mb-2"></i>
+                            <span class="text-xs font-medium">ক্যাশ আউট</span>
+                        </div>
+                        <div class="flex flex-col items-center p-3 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
+                            <i class="fas fa-credit-card text-2xl text-cashpoint-pink mb-2"></i>
+                            <span class="text-xs font-medium">পেমেন্ট</span>
+                        </div>
+                        <div id="add-money-btn-container" class="flex flex-col items-center p-3 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
+                            <i class="fas fa-plus-circle text-2xl text-cashpoint-pink mb-2"></i>
+                            <span class="text-xs font-medium">অ্যাড মানি</span>
+                        </div>
+                    </div>
+                    
+                    <div id="pending-requests-section" class="w-full space-y-4">
+                        <h3 class="text-xl font-bold text-gray-800 border-b pb-2">অপেক্ষমাণ অনুরোধ</h3>
+                        <div id="requests-list" class="space-y-3">
+                            <p class="text-center text-gray-500">কোনো অনুরোধ নেই।</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('add-money-btn-container').addEventListener('click', showAddMoneyOptions);
+            document.getElementById('send-money-btn-container').addEventListener('click', renderSendMoneyFormStep1);
+            document.getElementById('transfer-money-btn-container').addEventListener('click', showTransferOptions);
+        }
+        
+        // Render the statement page
+        function renderStatementPage(transactions) {
+            mainContent.innerHTML = `
+                <div class="flex flex-col h-full p-0 space-y-4">
+                    <div class="px-4 pt-4">
+                        <h2 class="text-2xl font-bold text-cashpoint-pink">স্টেটমেন্ট</h2>
+                    </div>
+                    <div id="transaction-list" class="flex-grow space-y-2 overflow-y-auto px-4 pb-4">
+                        </div>
+                </div>
+            `;
+            const transactionListEl = document.getElementById('transaction-list');
+            if (transactions.length === 0) {
+                transactionListEl.innerHTML = '<p class="text-center text-gray-500 pt-10">কোনো লেনদেন নেই।</p>';
+            } else {
+                transactions.forEach(tx => {
+                    const txEl = document.createElement('div');
+                    txEl.className = 'flex items-center p-3 bg-white rounded-lg shadow-sm cursor-pointer hover:bg-gray-50';
+                    
+                    let icon, color, amountPrefix, title = '';
+                    let firstChar = 'T';
+                    let statusText, statusColor;
+
+                    switch (tx.status) {
+                        case 'pending': statusText = 'অপেক্ষমাণ'; statusColor = 'text-orange-500'; break;
+                        case 'rejected': statusText = 'ব্যর্থ'; statusColor = 'text-red-500'; break;
+                        default: statusText = 'সফল'; statusColor = 'text-green-500'; break;
+                    }
+
+                    switch (tx.type) {
+                        case 'deposit':
+                            icon = 'fa-plus';
+                            color = 'text-green-500';
+                            amountPrefix = '+ ৳';
+                            title = 'অ্যাড মানি';
+                            firstChar = tx.description.charAt(0);
+                            break;
+                        case 'send':
+                            icon = 'fa-paper-plane';
+                            color = 'text-red-500';
+                            amountPrefix = '- ৳';
+                            title = 'সেন্ড মানি';
+                            firstChar = tx.description.split(" ")[2] ? tx.description.split(" ")[2].charAt(0) : 'S';
+                            break;
+                        case 'receive':
+                            icon = 'fa-inbox';
+                            color = 'text-green-500';
+                            amountPrefix = '+ ৳';
+                            title = 'রিসিভ মানি';
+                            firstChar = tx.description.split(" ")[2] ? tx.description.split(" ")[2].charAt(0) : 'R';
+                            break;
+                        case 'transfer':
+                             icon = 'fa-exchange-alt';
+                            color = 'text-red-500';
+                            amountPrefix = '- ৳';
+                            title = 'ট্রান্সফার';
+                            firstChar = 'T';
+                            break;
+                    }
+                    
+                    const date = tx.timestamp ? tx.timestamp.toDate() : new Date();
+                    const time = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+                    const dateStr = date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' });
+
+                    txEl.innerHTML = `
+                        <div class="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-cashpoint-pink font-bold mr-4">${firstChar.toUpperCase()}</div>
+                        <div class="flex-grow">
+                            <p class="font-semibold text-gray-800">${title}</p>
+                            <p class="text-xs text-gray-500">TrxID: ${tx.transactionId || 'N/A'}</p>
+                             <p class="text-xs font-semibold ${statusColor}">${statusText}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="font-bold ${color}">${amountPrefix}${tx.amount.toFixed(2)}</p>
+                            <p class="text-xs text-gray-400">${time} ${dateStr}</p>
+                        </div>
+                        <div class="ml-3 text-gray-400">
+                             <i class="fas fa-chevron-right"></i>
+                        </div>
+                    `;
+                    txEl.addEventListener('click', () => showTransactionDetails(tx, title, amountPrefix, color));
+                    transactionListEl.appendChild(txEl);
+                });
+            }
+        }
+        
+        // Show transaction details in a modal
+        function showTransactionDetails(tx, title, amountPrefix, color) {
+            const modal = document.getElementById('transaction-details-modal');
+            const modalContent = document.getElementById('modal-content');
+
+            const date = tx.timestamp ? tx.timestamp.toDate() : new Date();
+            const time = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+            const dateStr = date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+            let statusText, statusColor;
+            switch(tx.status) {
+                case 'pending': statusText = 'অপেক্ষমাণ'; statusColor = 'text-orange-500'; break;
+                case 'rejected': statusText = 'ব্যর্থ'; statusColor = 'text-red-500'; break;
+                default: statusText = 'সম্পূর্ণ'; statusColor = 'text-green-500'; break;
+            }
+
+            modalContent.innerHTML = `
+                <div class="flex justify-between items-center pb-2 border-b">
+                    <h3 class="text-lg font-bold">${title}</h3>
+                    <p class="font-bold ${statusColor}">${statusText}</p>
+                </div>
+                <div class="flex justify-between items-center text-center">
+                    <p class="text-3xl font-bold ${color}">${amountPrefix}${tx.amount.toFixed(2)}</p>
+                </div>
+                <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm pt-2">
+                    <p class="text-gray-500">বিস্তারিত:</p>
+                    <p class="text-right font-semibold">${tx.description}</p>
+                    
+                    <p class="text-gray-500">সময়:</p>
+                    <p class="text-right font-semibold">${time}, ${dateStr}</p>
+                    
+                    <p class="text-gray-500">চার্জ:</p>
+                    <p class="text-right font-semibold">৳ ${(tx.charge || 0).toFixed(2)}</p>
+                    
+                    <p class="text-gray-500">ট্রানজেকশন আইডি:</p>
+                    <p class="text-right font-semibold font-mono flex items-center justify-end">
+                        ${tx.transactionId || 'N/A'}
+                        <i class="fas fa-copy text-xs text-cashpoint-pink ml-2 cursor-pointer" onclick="copyToClipboard('${tx.transactionId}')"></i>
+                    </p>
+                </div>
+                 <button id="close-modal-btn" class="absolute top-1 right-2 text-gray-400 hover:text-gray-800 text-2xl font-bold">&times;</button>
+            `;
+
+            modal.classList.remove('hidden');
+            setTimeout(() => modalContent.classList.add('scale-100'), 10);
+
+            document.getElementById('close-modal-btn').addEventListener('click', () => {
+                modalContent.classList.remove('scale-100');
+                setTimeout(() => modal.classList.add('hidden'), 200);
+            });
+        }
+        
+        // Add event listener to close modal on backdrop click
+        document.getElementById('transaction-details-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'transaction-details-modal') {
+                const modalContent = document.getElementById('modal-content');
+                modalContent.classList.remove('scale-100');
+                setTimeout(() => e.target.classList.add('hidden'), 200);
+            }
+        });
+        
+        // Render money transfer options (Bkash / Nagad)
+        function showTransferOptions() {
+            mainContent.innerHTML = `
+                <div class="flex flex-col h-full p-4 space-y-6">
+                    <h2 class="text-2xl font-bold text-cashpoint-pink mb-4">টাকা ট্রান্সফার করার পদ্ধতি</h2>
+                    <button id="bkash-transfer-btn" class="w-full py-4 bg-cashpoint-pink text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105">
+                        <i class="fas fa-mobile-alt mr-2"></i> বিকাশ
+                    </button>
+                    <button id="nagad-transfer-btn" class="w-full py-4 bg-cashpoint-pink text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105">
+                        <i class="fas fa-mobile-alt mr-2"></i> নগদ
+                    </button>
+                    <button id="back-to-dashboard-btn" class="w-full py-3 bg-gray-400 text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105">ফিরে যান</button>
+                </div>
+            `;
+            document.getElementById('bkash-transfer-btn').addEventListener('click', () => showMoneyTransferForm('bkash'));
+            document.getElementById('nagad-transfer-btn').addEventListener('click', () => showMoneyTransferForm('nagad'));
+            document.getElementById('back-to-dashboard-btn').addEventListener('click', () => {
+                const profileDocRef = doc(db, `artifacts/${appId}/users/${currentUser.uid}`);
+                onSnapshot(profileDocRef, (docSnap) => {
+                    const profileData = docSnap.exists() ? docSnap.data() : { name: 'ব্যবহারকারী', mobile: '', dob: '', balance: 0.00 };
+                    renderDashboard(profileData);
+                    renderSidebar(profileData);
+                });
+            });
+        }
+
+        // Render the money transfer form
+        function showMoneyTransferForm(method) {
+            const reserveLimit = appConfig.reserve[method] || 0;
+            mainContent.innerHTML = `
+                <div class="flex flex-col h-full p-4 space-y-6">
+                    <h2 class="text-2xl font-bold text-cashpoint-pink mb-4">${method.charAt(0).toUpperCase() + method.slice(1)} অ্যাকাউন্টে ট্রান্সফার</h2>
+                    <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg text-center">
+                        <p class="text-sm text-blue-700">পার্সেন্টেজ চার্জ ফ্রি লিমিট: <span class="font-bold">৳ ${reserveLimit.toFixed(2)}</span></p>
+                    </div>
+                    <p class="text-sm text-gray-600">দয়া করে প্রাপকের **ব্যক্তিগত** ${method} নম্বর দিন।</p>
+                    <form id="transfer-form" class="w-full space-y-4">
+                        <input type="tel" id="recipient-number-input" placeholder="প্রাপকের ${method} নম্বর" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cashpoint-pink">
+                        <input type="number" id="transfer-amount-input" placeholder="টাকার পরিমাণ" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cashpoint-pink">
+                        <input type="hidden" id="transfer-method-input" value="${method}">
+                        <button type="submit" class="w-full py-3 bg-cashpoint-pink text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105">ট্রান্সফার নিশ্চিত করুন</button>
+                    </form>
+                    <button id="back-to-transfer-options-btn" class="w-full py-3 bg-gray-400 text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105">ফিরে যান</button>
+                </div>
+            `;
+            document.getElementById('transfer-form').addEventListener('submit', handleMoneyTransfer);
+            document.getElementById('back-to-transfer-options-btn').addEventListener('click', showTransferOptions);
+        }
+
+        // Show transfer confirmation screen with detailed charge breakdown - UPDATED FUNCTION
+        function showMoneyTransferConfirmation(recipientNumber, amount, method) {
+            const reserveLimit = appConfig.reserve[method] || 0;
+            const chargeConfig = appConfig.charges.transfer;
+            
+            const reserveUsed = Math.min(amount, reserveLimit);
+            const chargeableAmount = Math.max(0, amount - reserveLimit);
+            
+            const fixedCharge = chargeConfig.fixed; // Fixed charge is always applied
+            let percentageCharge = 0;
+            
+            if (chargeableAmount > 0) {
+                percentageCharge = chargeableAmount * chargeConfig.percentage / 100;
+            }
+            
+            const totalCharge = fixedCharge + percentageCharge;
+            const totalDeduction = amount + totalCharge;
+            
+            // Text format for charge breakdown as per user request
+            const chargeBreakdownText = `<span class="text-xs text-gray-500">(${chargeConfig.percentage}% ৳${percentageCharge.toFixed(2)} + ৳${fixedCharge.toFixed(2)})</span>`;
+            
+            mainContent.innerHTML = `
+                <div class="flex flex-col h-full p-4 space-y-6">
+                    <h2 class="text-2xl font-bold text-cashpoint-pink mb-4">লেনদেন নিশ্চিত করুন</h2>
+                    <div class="bg-gray-100 p-4 rounded-xl space-y-2 text-sm">
+                        <p class="flex justify-between">প্রাপক (${method}): <span class="font-semibold text-gray-800">${recipientNumber}</span></p>
+                        <p class="flex justify-between">মোট পরিমাণ: <span class="font-semibold text-gray-800">৳ ${amount.toFixed(2)}</span></p>
+                        <hr class="my-1">
+                        <p class="flex justify-between text-green-600">চার্জ ফ্রি: <span class="font-semibold">- ৳ ${reserveUsed.toFixed(2)}</span></p>
+                        <p class="flex justify-between text-orange-600">চার্জের পরিমাণ (${chargeConfig.percentage}%): <span class="font-semibold">৳ ${chargeableAmount.toFixed(2)}</span></p>
+                        <p class="flex justify-between">মোট চার্জ: <span class="font-semibold text-gray-800">${chargeBreakdownText} ৳ ${totalCharge.toFixed(2)}</span></p>
+                        <hr class="my-1 border-gray-300">
+                        <p class="flex justify-between font-bold text-base">সর্বমোট কর্তন: <span class="text-gray-800">৳ ${totalDeduction.toFixed(2)}</span></p>
+                    </div>
+                    <input type="password" id="transfer-pin-input-confirm" placeholder="আপনার পিন দিন" maxlength="4" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cashpoint-pink">
+                    <button id="transfer-final-btn" class="w-full py-3 bg-cashpoint-pink text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105">ট্রান্সফার করুন</button>
+                    <button id="back-to-transfer-form-btn" class="w-full py-3 bg-gray-400 text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105">ফিরে যান</button>
+                </div>
+            `;
+            
+            document.getElementById('transfer-final-btn').addEventListener('click', () => {
+                 const pin = document.getElementById('transfer-pin-input-confirm').value;
+                 handleFinalMoneyTransfer(recipientNumber, amount, method, pin);
+            });
+            document.getElementById('back-to-transfer-form-btn').addEventListener('click', () => showMoneyTransferForm(method));
+        }
+
+        // Handle the money transfer transaction
+        async function handleMoneyTransfer(event) {
+            event.preventDefault();
+            const recipientNumber = document.getElementById('recipient-number-input').value.trim();
+            const amount = parseFloat(document.getElementById('transfer-amount-input').value);
+            const method = document.getElementById('transfer-method-input').value;
+
+            if (!recipientNumber || isNaN(amount) || amount <= 0) {
+                showMessage("দয়া করে সব তথ্য সঠিকভাবে পূরণ করুন।");
+                return;
+            }
+            
+            // Go to confirmation screen instead of direct transaction
+            showMoneyTransferConfirmation(recipientNumber, amount, method);
+        }
+
+        async function handleFinalMoneyTransfer(recipientNumber, amount, method, pin) {
+            if (pin.length !== 4) {
+                showMessage("দয়া করে ৪-সংখ্যার সঠিক পিন দিন।");
+                return;
+            }
+
+            showLoading(true);
+
+            const userDocRef = doc(db, `artifacts/${appId}/users/${currentUser.uid}`);
+            const userDoc = await getDoc(userDocRef);
+            const userData = userDoc.data();
+
+            if (hashPin(pin) !== userData.pinHash) {
+                showMessage("ভুল পিন।");
+                showLoading(false);
+                return;
+            }
+
+            const reserveLimit = appConfig.reserve[method] || 0;
+            const chargeConfig = appConfig.charges.transfer;
+
+            const reserveUsed = Math.min(amount, reserveLimit);
+            const chargeableAmount = Math.max(0, amount - reserveLimit);
+            
+            const fixedCharge = chargeConfig.fixed; 
+            let percentageCharge = 0;
+            if (chargeableAmount > 0) {
+                percentageCharge = chargeableAmount * chargeConfig.percentage / 100;
+            }
+            
+            const totalCharge = fixedCharge + percentageCharge;
+            const totalDeduction = amount + totalCharge;
+
+            if ((userData.balance || 0) < totalDeduction) {
+                showMessage("অপর্যাপ্ত ব্যালেন্স।");
+                showLoading(false);
+                return;
+            }
+            
+            try {
+                const transactionId = generateTransactionId();
+                const configDocRef = doc(db, `artifacts/${appId}/admin_config/settings`);
+
+                await runTransaction(db, async (transaction) => {
+                    // 1. Deduct from user balance
+                    const userDoc = await transaction.get(userDocRef);
+                    const currentBalance = userDoc.data().balance || 0;
+                    const newBalance = currentBalance - totalDeduction;
+                    transaction.update(userDocRef, { balance: newBalance });
+
+                    // 2. If reserve was used, deduct from reserve
+                    if (reserveUsed > 0) {
+                        transaction.update(configDocRef, { [`reserve.${method}`]: increment(-reserveUsed) });
+                    }
+                });
+
+                // Add transaction request to the collection
+                await addDoc(collection(db, `artifacts/${appId}/money_transfer_requests`), {
+                    userId: currentUser.uid,
+                    amount: amount,
+                    recipientNumber: recipientNumber,
+                    method: method,
+                    status: 'pending',
+                    timestamp: serverTimestamp(),
+                    charge: totalCharge,
+                    reserveUsed: reserveUsed
+                });
+                
+                // Add a record in user's statement as 'pending'
+                await addDoc(collection(db, `artifacts/${appId}/users/${currentUser.uid}/transactions`), {
+                    type: 'transfer',
+                    amount: amount,
+                    charge: totalCharge,
+                    description: `Transfer to ${method.toUpperCase()} (${recipientNumber})`,
+                    status: 'pending',
+                    timestamp: serverTimestamp(),
+                    transactionId: transactionId
+                });
+
+                showMessage("আপনার ট্রান্সফার রিকোয়েস্ট সফলভাবে জমা হয়েছে।");
+            } catch (error) {
+                console.error("Error submitting request:", error);
+                showMessage("ট্রান্সফার রিকোয়েস্ট জমা দিতে ব্যর্থ হয়েছে।");
+            } finally {
+                showLoading(false);
+                setTimeout(() => {
+                    const profileDocRef = doc(db, `artifacts/${appId}/users/${currentUser.uid}`);
+                    onSnapshot(profileDocRef, (docSnap) => {
+                        const profileData = docSnap.exists() ? docSnap.data() : { name: 'ব্যবহারকারী', mobile: '', dob: '', balance: 0.00 };
+                        renderDashboard(profileData);
+                        renderSidebar(profileData);
+                    });
+                }, 2000);
+            }
+        }
+
+        // Render Add Money options (Bkash / Nagad)
+        function showAddMoneyOptions() {
+            mainContent.innerHTML = `
+                <div class="flex flex-col h-full p-4 space-y-6">
+                    <h2 class="text-2xl font-bold text-cashpoint-pink mb-4">টাকা যোগ করার পদ্ধতি</h2>
+                    <button id="bkash-btn" class="w-full py-4 bg-cashpoint-pink text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105">
+                        <i class="fas fa-mobile-alt mr-2"></i> বিকাশ
+                    </button>
+                    <button id="nagad-btn" class="w-full py-4 bg-cashpoint-pink text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105">
+                        <i class="fas fa-mobile-alt mr-2"></i> নগদ
+                    </button>
+                    <button id="back-to-dashboard-btn" class="w-full py-3 bg-gray-400 text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105">ফিরে যান</button>
+                </div>
+            `;
+            document.getElementById('bkash-btn').addEventListener('click', () => showTransactionForm('bkash'));
+            document.getElementById('nagad-btn').addEventListener('click', () => showTransactionForm('nagad'));
+            document.getElementById('back-to-dashboard-btn').addEventListener('click', () => {
+                const profileDocRef = doc(db, `artifacts/${appId}/users/${currentUser.uid}`);
+                onSnapshot(profileDocRef, (docSnap) => {
+                    const profileData = docSnap.exists() ? docSnap.data() : { name: 'ব্যবহারকারী', mobile: '', dob: '', balance: 0.00 };
+                    renderDashboard(profileData);
+                    renderSidebar(profileData);
+                });
+            });
+        }
+        
+        // Render transaction form with admin's number
+        function showTransactionForm(method) {
+            const adminNumber = appConfig.paymentNumbers[method] || 'নম্বর পাওয়া যায়নি';
+            mainContent.innerHTML = `
+                <div class="flex flex-col h-full p-4 space-y-6">
+                    <h2 class="text-2xl font-bold text-cashpoint-pink mb-4">${method.charAt(0).toUpperCase() + method.slice(1)} দিয়ে টাকা যোগ করুন</h2>
+                    <div class="p-4 bg-gray-100 rounded-xl">
+                        <p class="text-sm text-gray-600">নিচের এই নম্বরে টাকা পাঠান:</p>
+                        <div class="flex items-center justify-between mt-2 p-3 bg-white rounded-lg border border-gray-200">
+                            <span id="admin-number" class="font-mono text-lg font-bold">${adminNumber}</span>
+                            <i class="fas fa-copy text-cashpoint-pink cursor-pointer" onclick="copyToClipboard('${adminNumber}')"></i>
+                        </div>
+                    </div>
+                    <form id="add-money-form" class="w-full space-y-4">
+                        <input type="number" id="amount-input" placeholder="টাকার পরিমাণ" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cashpoint-pink">
+                        <input type="text" id="txid-input" placeholder="ট্রানজেকশন আইডি" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cashpoint-pink">
+                        <input type="tel" id="sender-number-input" placeholder="আপনার ${method} নম্বরটি দিন" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cashpoint-pink">
+                        <input type="hidden" id="method-input" value="${method}">
+                        <button type="submit" class="w-full py-3 bg-cashpoint-pink text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105">রিকোয়েস্ট জমা দিন</button>
+                    </form>
+                    <button id="back-to-options-btn" class="w-full py-3 bg-gray-400 text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105">ফিরে যান</button>
+                </div>
+            `;
+            document.getElementById('add-money-form').addEventListener('submit', handleAddMoneyRequest);
+            document.getElementById('back-to-options-btn').addEventListener('click', showAddMoneyOptions);
+        }
+
+        // Handle the submission of a new add money request
+        async function handleAddMoneyRequest(event) {
+            event.preventDefault();
+            const amount = parseFloat(document.getElementById('amount-input').value);
+            const txId = document.getElementById('txid-input').value.trim();
+            const senderNumber = document.getElementById('sender-number-input').value.trim();
+            const recipientAdminNumber = document.getElementById('admin-number').textContent.trim();
+            const method = document.getElementById('method-input').value;
+
+            if (isNaN(amount) || amount <= 0 || !txId || !senderNumber) {
+                showMessage("দয়া করে সব তথ্য সঠিকভাবে পূরণ করুন।");
+                return;
+            }
+
+            showLoading(true);
+            try {
+                const transactionId = generateTransactionId();
+                // Add a record in user's statement as 'pending'
+                const txCollectionRef = collection(db, `artifacts/${appId}/users/${currentUser.uid}/transactions`);
+                const newTxDocRef = await addDoc(txCollectionRef, {
+                    type: 'deposit',
+                    amount: amount,
+                    charge: 0,
+                    description: `Deposit via ${method.toUpperCase()}`,
+                    status: 'pending',
+                    timestamp: serverTimestamp(),
+                    transactionId: transactionId
+                });
+                
+                // Add transaction request to the collection with reference to the user's transaction
+                await addDoc(collection(db, `artifacts/${appId}/add_money_requests`), {
+                    userId: currentUser.uid,
+                    amount: amount,
+                    txId: txId,
+                    method: method,
+                    senderNumber: senderNumber,
+                    recipientAdminNumber: recipientAdminNumber,
+                    status: 'pending',
+                    timestamp: serverTimestamp(),
+                    transactionRef: newTxDocRef.id // Store the transaction document ID
+                });
+
+                showMessage("আপনার রিকোয়েস্ট সফলভাবে জমা হয়েছে।");
+            } catch (error) {
+                console.error("Error submitting request:", error);
+                showMessage("রিকোয়েস্ট জমা দিতে ব্যর্থ হয়েছে।");
+            } finally {
+                showLoading(false);
+                // Redirect back to dashboard to show pending request
+                const profileDocRef = doc(db, `artifacts/${appId}/users/${currentUser.uid}`);
+                onSnapshot(profileDocRef, (docSnap) => {
+                    const profileData = docSnap.exists() ? docSnap.data() : { name: 'ব্যবহারকারী', mobile: '', dob: '', balance: 0.00 };
+                    renderDashboard(profileData);
+                    renderSidebar(profileData);
+                });
+            }
+        }
+        
+        // Step 1: Render the form to enter recipient's info
+        function renderSendMoneyFormStep1() {
+            mainContent.innerHTML = `
+                <div class="flex flex-col h-full p-4 space-y-6">
+                    <h2 class="text-2xl font-bold text-cashpoint-pink mb-4">টাকা পাঠান</h2>
+                    <input type="text" id="recipient-input" placeholder=" প্রাপকের ইমেইল বা মোবাইল নম্বর" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cashpoint-pink">
+                    <div id="recipient-info" class="mt-2 text-sm text-center"></div>
+                    <button id="find-recipient-btn" class="w-full py-3 bg-cashpoint-pink text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105">পরবর্তী</button>
+                    <button id="cancel-btn" class="w-full py-3 bg-gray-400 text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105">বাতিল</button>
+                </div>
+            `;
+            const recipientInput = document.getElementById('recipient-input');
+            const findRecipientBtn = document.getElementById('find-recipient-btn');
+
+            recipientInput.addEventListener('input', () => {
+                // Clear recipient info when input changes
+                document.getElementById('recipient-info').textContent = '';
+                findRecipientBtn.disabled = false;
+                findRecipientBtn.classList.remove('bg-gray-400', 'cursor-not-allowed');
+                findRecipientBtn.classList.add('bg-cashpoint-pink');
+            });
+
+            findRecipientBtn.addEventListener('click', findRecipientAndRenderFormStep2);
+            document.getElementById('cancel-btn').addEventListener('click', () => {
+                const profileDocRef = doc(db, `artifacts/${appId}/users/${currentUser.uid}`);
+                onSnapshot(profileDocRef, (docSnap) => {
+                    const profileData = docSnap.exists() ? docSnap.data() : { name: 'ব্যবহারকারী', mobile: '', dob: '', balance: 0.00 };
+                    renderDashboard(profileData);
+                    renderSidebar(profileData);
+                });
+            });
+        }
+
+        // Step 2: Find the recipient and render the amount form
+        async function findRecipientAndRenderFormStep2() {
+            const recipientId = document.getElementById('recipient-input').value.trim();
+            const recipientInfoDiv = document.getElementById('recipient-info');
+            const findRecipientBtn = document.getElementById('find-recipient-btn');
+        
+            if (!recipientId) {
+                showMessage("দয়া করে প্রাপকের তথ্য দিন।");
+                return;
+            }
+        
+            showLoading(true);
+            try {
+                const usersCollectionRef = collection(db, `artifacts/${appId}/users/`);
+                let recipientDocSnap = null;
+        
+                if (recipientId.includes('@')) {
+                    // Case 1: Search by email
+                    const qEmail = query(usersCollectionRef, where("email", "==", recipientId));
+                    const querySnapshotEmail = await getDocs(qEmail);
+                    if (!querySnapshotEmail.empty) {
+                        recipientDocSnap = querySnapshotEmail.docs[0];
+                    }
+                } else if (!isNaN(recipientId) && recipientId.length > 5) {
+                    // Case 2: Search by mobile number
+                    const qMobile = query(usersCollectionRef, where("mobile", "==", recipientId));
+                    const querySnapshotMobile = await getDocs(qMobile);
+                    if (!querySnapshotMobile.empty) {
+                        recipientDocSnap = querySnapshotMobile.docs[0];
+                    }
+                } else {
+                    // Case 3: Assume it's a UID and search directly
+                    const docRef = doc(db, `artifacts/${appId}/users/${recipientId}`);
+                    const docSnap = await getDoc(docRef);
+                    if (docSnap.exists()) {
+                        recipientDocSnap = docSnap;
+                    }
+                }
+        
+                if (recipientDocSnap) {
+                    const recipientUid = recipientDocSnap.id;
+                    const recipientProfileData = recipientDocSnap.data();
+
+                    if (recipientUid === currentUser.uid) {
+                        showMessage("আপনি নিজের কাছে টাকা পাঠাতে পারবেন না।");
+                        showLoading(false);
+                        return;
+                    }
+                    recipientData = { uid: recipientUid, name: recipientProfileData.name, mobile: recipientProfileData.mobile };
+                    recipientInfoDiv.textContent = `প্রাপক: ${recipientData.name} (${recipientData.mobile})`;
+                    recipientInfoDiv.classList.add('text-green-600');
+                    renderSendMoneyFormStep3(recipientData);
+                } else {
+                    recipientInfoDiv.textContent = 'প্রাপককে খুঁজে পাওয়া যায়নি।';
+                    recipientInfoDiv.classList.add('text-red-600');
+                    findRecipientBtn.disabled = true;
+                    findRecipientBtn.classList.remove('bg-cashpoint-pink');
+                    findRecipientBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
+                }
+            } catch (error) {
+                console.error("Error finding recipient:", error);
+                recipientInfoDiv.textContent = 'প্রাপক খোঁজার সময় একটি ত্রুটি হয়েছে।';
+                recipientInfoDiv.classList.add('text-red-600');
+                findRecipientBtn.disabled = true;
+                findRecipientBtn.classList.remove('bg-cashpoint-pink');
+                findRecipientBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
+            } finally {
+                showLoading(false);
+            }
+        }
+        
+        // Step 3: Render the amount form (updated to match the new image)
+        async function renderSendMoneyFormStep3(recipient) {
+            showLoading(true);
+            const profileDocRef = doc(db, `artifacts/${appId}/users/${currentUser.uid}`);
+            const docSnap = await getDoc(profileDocRef);
+            showLoading(false);
+            const currentBalance = docSnap.exists() ? docSnap.data().balance : 0;
+
+            mainContent.innerHTML = `
+                <div class="flex flex-col items-center h-full p-4 space-y-6">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6">সেন্ড মানি</h2>
+                    <div class="flex items-center space-x-4 mb-6">
+                        <div class="w-12 h-12 rounded-full bg-cashpoint-pink flex items-center justify-center text-white text-xl font-bold">
+                            ${recipient.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div class="flex flex-col">
+                            <span class="text-lg font-semibold text-gray-800">${recipient.name}</span>
+                            <span class="text-sm text-gray-500">${recipient.mobile}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="w-full flex flex-col items-center space-y-4">
+                        <h3 class="text-lg text-gray-600">পরিমাণ</h3>
+                        <div class="w-full text-center">
+                            <span class="text-6xl font-bold">৳</span>
+                            <input type="number" id="amount-input" placeholder="০" class="text-6xl font-bold text-center bg-transparent border-none focus:outline-none w-1/2">
+                        </div>
+                    </div>
+
+                    <div class="w-full space-y-4 mt-8">
+                        <div class="balance-container relative p-4 rounded-xl shadow-md bg-gray-100 flex justify-center items-center">
+                            <span class="text-gray-600">ব্যবহারযোগ্য ব্যালেন্স:</span>
+                            <span id="current-balance" class="text-lg font-bold text-cashpoint-pink ml-2">৳ ${currentBalance.toFixed(2)}</span>
+                        </div>
+                        
+                        <div class="mt-4">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-2">গিফট কার্ড সিলেক্ট করুন</h3>
+                            <div class="flex justify-between space-x-2">
+                                <div class="flex flex-col items-center p-3 border-2 border-cashpoint-pink rounded-xl bg-cashpoint-pink text-white w-1/4">
+                                    <i class="fas fa-paper-plane text-2xl mb-1"></i>
+                                    <span class="text-xs">সেন্ড মানি</span>
+                                </div>
+                                <div class="flex flex-col items-center p-3 border-2 border-gray-300 rounded-xl w-1/4">
+                                    <i class="fas fa-gift text-2xl mb-1 text-cashpoint-pink"></i>
+                                    <span class="text-xs text-gray-600">অভিনন্দন</span>
+                                </div>
+                                <div class="flex flex-col items-center p-3 border-2 border-gray-300 rounded-xl w-1/4">
+                                    <i class="fas fa-birthday-cake text-2xl mb-1 text-cashpoint-pink"></i>
+                                    <span class="text-xs text-gray-600">জন্মদিন</span>
+                                </div>
+                                <div class="flex flex-col items-center p-3 border-2 border-gray-300 rounded-xl w-1/4">
+                                    <i class="fas fa-heart text-2xl mb-1 text-cashpoint-pink"></i>
+                                    <span class="text-xs text-gray-600">বিয়ে</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-auto w-full flex space-x-2 pt-8">
+                        <button id="confirm-amount-btn" class="w-full py-3 bg-cashpoint-pink text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105">এগিয়ে যান</button>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('confirm-amount-btn').addEventListener('click', () => {
+                const amount = parseFloat(document.getElementById('amount-input').value);
+                if (isNaN(amount) || amount <= 0) {
+                    showMessage("সঠিক পরিমাণ লিখুন।");
+                    return;
+                }
+                renderSendMoneyConfirmation(recipient, amount);
+            });
+        }
+        
+        // Step 4: Render the final confirmation form with PIN input
+        function renderSendMoneyConfirmation(recipient, amount) {
+            const chargeConfig = appConfig.charges.send;
+            const charge = (amount * chargeConfig.percentage / 100) + chargeConfig.fixed;
+            const total = amount + charge;
+
+            mainContent.innerHTML = `
+                <div class="flex flex-col h-full p-4 space-y-6">
+                    <h2 class="text-2xl font-bold text-cashpoint-pink mb-4">লেনদেন নিশ্চিত করুন</h2>
+                    <div class="bg-gray-100 p-4 rounded-xl space-y-2">
+                        <p class="text-sm text-gray-600 flex justify-between">প্রাপক: <span class="font-semibold text-gray-800">${recipient.name}</span></p>
+                        <p class="text-sm text-gray-600 flex justify-between">পরিমাণ: <span class="font-semibold text-gray-800">৳ ${amount.toFixed(2)}</span></p>
+                        <p class="text-sm text-gray-600 flex justify-between">চার্জ: <span class="font-semibold text-gray-800">৳ ${charge.toFixed(2)}</span></p>
+                        <hr class="my-1">
+                        <p class="text-sm text-gray-600 flex justify-between font-bold">মোট: <span class="font-semibold text-gray-800">৳ ${total.toFixed(2)}</span></p>
+                    </div>
+                    <input type="password" id="pin-input" placeholder="আপনার পিন দিন" maxlength="4" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cashpoint-pink">
+                    <button id="send-money-final-btn" class="w-full py-3 bg-cashpoint-pink text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105">টাকা পাঠান</button>
+                    <button id="back-btn-step4" class="w-full py-3 bg-gray-400 text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105">ফিরে যান</button>
+                </div>
+            `;
+            document.getElementById('send-money-final-btn').addEventListener('click', () => handleSendMoneyTransaction(recipient, amount));
+            document.getElementById('back-btn-step4').addEventListener('click', () => renderSendMoneyFormStep3(recipient));
+        }
+
+        // Simple hashing function for PIN (for demonstration purposes only)
+        function hashPin(pin) {
+            let hash = 0;
+            for (let i = 0; i < pin.length; i++) {
+                const char = pin.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash |= 0; // Convert to 32bit integer
+            }
+            return hash;
+        }
+
+        // ❗️❗️❗️ এই ফাংশনটি পরিবর্তন করা হয়েছে ❗️❗️❗️
+        // Step 5: Handle the actual transaction by calling the Vercel API
         async function handleSendMoneyTransaction(recipient, amount) {
             const pin = document.getElementById('pin-input').value;
             if (!pin || pin.length !== 4) {
@@ -268,26 +1214,26 @@
                 return;
             }
 
-            if (!currentUser) {
-                showMessage("অনুগ্রহ করে আবার লগইন করুন।");
-                return;
-            }
-
             showLoading(true);
 
             try {
-                // Get the user's authentication token
-                const idToken = await currentUser.getIdToken();
+                const user = auth.currentUser;
+                if (!user) {
+                    throw new Error("You must be logged in to send money.");
+                }
 
-                // Call the backend API function instead of running logic here
+                // Get the Firebase ID token to authenticate the user to our backend
+                const token = await user.getIdToken();
+
+                // Call our secure Vercel API endpoint
                 const response = await fetch('/api/sendMoney', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${idToken}`
+                        'Authorization': `Bearer ${token}`
                     },
                     body: JSON.stringify({
-                        recipientId: recipient.uid,
+                        recipientUid: recipient.uid,
                         amount: amount,
                         pin: pin
                     })
@@ -296,30 +1242,859 @@
                 const result = await response.json();
 
                 if (!response.ok) {
-                    throw new Error(result.error || 'একটি অজানা সমস্যা হয়েছে।');
+                    // If the server responded with an error, show its message
+                    throw new Error(result.message || 'An unknown error occurred.');
                 }
 
-                showMessage(result.message); // Show success message from backend
+                // Show success message from the server
+                showMessage(result.message);
 
-                // Refresh dashboard after a short delay
+            } catch (error) {
+                console.error("Transaction failed:", error);
+                showMessage(error.message);
+            } finally {
+                showLoading(false);
+                // Redirect back to the dashboard after the transaction attempt
                 setTimeout(() => {
                     const profileDocRef = doc(db, `artifacts/${appId}/users/${currentUser.uid}`);
                     onSnapshot(profileDocRef, (docSnap) => {
                         const profileData = docSnap.exists() ? docSnap.data() : { name: 'ব্যবহারকারী', mobile: '', dob: '', balance: 0.00 };
                         renderDashboard(profileData);
+                        renderSidebar(profileData);
                     });
-                }, 1500);
+                }, 2000);
+            }
+        }
+        
+        // Handle Google Sign-in
+        async function handleGoogleSignIn() {
+            showLoading(true);
+            try {
+                const result = await signInWithPopup(auth, provider);
+                const user = result.user;
 
+                // Check if user document exists, if not, create one.
+                const userDocRef = doc(db, `artifacts/${appId}/users/${user.uid}`);
+                const userDocSnap = await getDoc(userDocRef);
+
+                if (!userDocSnap.exists()) {
+                    // New user signed in with Google
+                    await setDoc(userDocRef, {
+                        name: user.displayName || 'New User',
+                        email: user.email,
+                        balance: 0.00,
+                        mobile: '',
+                        dob: '',
+                        pinHash: 0,
+                        isAdmin: false // Default role
+                    });
+                     showMessage("স্বাগতম! আপনার প্রোফাইল তৈরি হয়েছে।");
+                } else {
+                     showMessage("সাইন ইন সফল হয়েছে!");
+                }
+                
+                console.log("Google Sign-In Successful:", user);
             } catch (error) {
-                console.error("Frontend Transaction failed:", error);
-                showMessage(error.message);
+                console.error("Google Sign-In Failed:", error);
+                if (error.code === 'auth/popup-closed-by-user') {
+                    showMessage("পপ-আপ বন্ধ হয়ে গেছে। আবার চেষ্টা করুন।");
+                } else if (error.code === 'auth/cancelled-popup-request') {
+                    showMessage("পপ-আপ অনুরোধ বাতিল হয়েছে।");
+                } else if (error.code === 'auth/operation-not-allowed') {
+                    showMessage("Google সাইন-ইন পদ্ধতিটি Firebase কনসোলে সক্ষম করা হয়নি।");
+                } else if (error.code === 'auth/unauthorized-domain') {
+                    showMessage("সাইন ইন ব্যর্থ হয়েছে। Firebase কনসোলে আপনার ডোমেইনটি যোগ করুন।");
+                    console.error("Please add your domain to the 'Authorized domains' list in the Firebase console. This is a common setup issue.");
+                } else {
+                    showMessage("সাইন ইন ব্যর্থ হয়েছে। আবার চেষ্টা করুন।");
+                }
             } finally {
                 showLoading(false);
             }
         }
         
-        // ... (The rest of the JavaScript code remains the same) ...
+        // Handle email sign-up
+        async function handleEmailSignUp() {
+            const name = document.getElementById('name-input').value.trim();
+            const email = document.getElementById('email-input').value.trim();
+            const password = document.getElementById('password-input').value;
 
+            if (!name || !email || !password) {
+                showMessage("নাম, ইমেইল এবং পাসওয়ার্ড দুটিই পূরণ করুন।");
+                return;
+            }
+            if (password.length < 6) {
+                showMessage("পাসওয়ার্ড অন্তত 6 অক্ষরের হতে হবে।");
+                return;
+            }
+
+            showLoading(true);
+            try {
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                const user = userCredential.user;
+
+                // Set user's display name
+                await updateProfile(user, { displayName: name });
+
+                // Save user profile data to Firestore
+                const docRef = doc(db, `artifacts/${appId}/users/${user.uid}`);
+                await setDoc(docRef, { 
+                    name: name,
+                    email: email,
+                    balance: 0.00,
+                    mobile: '',
+                    dob: '',
+                    pinHash: 0, // Placeholder until user sets pin
+                    isAdmin: false // Default user role
+                });
+                
+                showMessage("অ্যাকাউন্ট তৈরি হয়েছে! এখন প্রোফাইল সম্পূর্ণ করুন।");
+            } catch (error) {
+                console.error("Email Sign-up Failed:", error);
+                if (error.code === 'auth/email-already-in-use') {
+                    showMessage("এই ইমেইলটি ইতিমধ্যেই ব্যবহার করা হয়েছে। লগ ইন করুন।");
+                } else if (error.code === 'auth/invalid-email') {
+                    showMessage("সঠিক ইমেইল ঠিকানা লিখুন।");
+                } else {
+                    showMessage("সাইন আপ ব্যর্থ হয়েছে। আবার চেষ্টা করুন।");
+                }
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Handle email sign-in
+        async function handleEmailSignIn() {
+            const email = document.getElementById('email-input').value;
+            const password = document.getElementById('password-input').value;
+
+            if (!email || !password) {
+                showMessage("ইমেইল এবং পাসওয়ার্ড দুটিই পূরণ করুন।");
+                return;
+            }
+
+            showLoading(true);
+            try {
+                await signInWithEmailAndPassword(auth, email, password);
+                showMessage("সাইন ইন সফল হয়েছে!");
+            } catch (error) {
+                console.error("Email Sign-in Failed:", error);
+                if (error.code === 'auth/invalid-credential') {
+                     showMessage("ভুল ইমেইল বা পাসওয়ার্ড।");
+                } else if (error.code === 'auth/user-not-found') {
+                    showMessage("কোনো ব্যবহারকারী এই ইমেইলে পাওয়া যায়নি।");
+                } else {
+                    showMessage("সাইন ইন ব্যর্থ হয়েছে। আবার চেষ্টা করুন।");
+                }
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Handle user profile data saving
+        async function handleProfileSave(event) {
+            event.preventDefault();
+            const name = document.getElementById('name').value;
+            const dob = document.getElementById('dob-input').value;
+            const mobile = document.getElementById('mobile').value;
+            const pin = document.getElementById('pin').value;
+
+            if (!pin || pin.length !== 4) {
+                showMessage("পিন ৪-সংখ্যার হতে হবে।");
+                return;
+            }
+
+            showLoading(true);
+            try {
+                // Check if mobile number is already in use by another user
+                const allUsersCollectionRef = collection(db, `artifacts/${appId}/users/`);
+                const q = query(allUsersCollectionRef, where("mobile", "==", mobile));
+                const querySnapshot = await getDocs(q);
+
+                let mobileExists = false;
+                querySnapshot.forEach(doc => {
+                    if (doc.id !== currentUser.uid) {
+                        mobileExists = true;
+                    }
+                });
+
+                if (mobileExists) {
+                    showMessage("এই মোবাইল নম্বরটি ইতিমধ্যেই ব্যবহার করা হয়েছে।");
+                    showLoading(false);
+                    return;
+                }
+                
+                const docRef = doc(db, `artifacts/${appId}/users/${currentUser.uid}`);
+                const pinHash = hashPin(pin);
+                // BUG FIX: Removed balance from this object to prevent it from being reset to 0.
+                await setDoc(docRef, { name, dob, mobile, pinHash, email: currentUser.email }, { merge: true });
+                showMessage("প্রোফাইল সফলভাবে সংরক্ষণ করা হয়েছে!");
+            } catch (error) {
+                console.error("Error saving profile:", error);
+                showMessage("প্রোফাইল সংরক্ষণ ব্যর্থ হয়েছে।");
+            } finally {
+                showLoading(false);
+            }
+        }
+        
+        // Render the Admin Dashboard
+        function renderAdminDashboard() {
+            const headerH1 = document.querySelector('#header h1');
+            if(headerH1) headerH1.textContent = 'Admin Panel';
+             const userInfoHeader = document.getElementById('user-info-header');
+            if(userInfoHeader) userInfoHeader.innerHTML = '';
+            
+            mainContent.innerHTML = `
+                <div class="flex flex-col h-full p-4 space-y-4">
+                    <div class="flex space-x-2 border-b border-gray-300">
+                        <button id="add-money-tab" class="tab-btn py-2 px-4 text-sm font-semibold border-b-2 border-transparent focus:outline-none">অ্যাড মানি</button>
+                        <button id="transfer-money-tab" class="tab-btn py-2 px-4 text-sm font-semibold border-b-2 border-transparent focus:outline-none">ট্রান্সফার মানি</button>
+                        <button id="charge-settings-tab" class="tab-btn py-2 px-4 text-sm font-semibold border-b-2 border-transparent focus:outline-none">সেটিংস</button>
+                    </div>
+                     <div id="admin-content-area" class="space-y-4 flex-grow overflow-y-auto">
+                         </div>
+                </div>
+            `;
+
+            let currentTab = 'add-money';
+
+            const addMoneyTab = document.getElementById('add-money-tab');
+            const transferMoneyTab = document.getElementById('transfer-money-tab');
+            const chargeSettingsTab = document.getElementById('charge-settings-tab');
+            
+            const setActiveTab = (tab) => {
+                addMoneyTab.classList.remove('add-money-active');
+                transferMoneyTab.classList.remove('transfer-money-active');
+                chargeSettingsTab.classList.remove('add-money-active');
+                if(tab) tab.classList.add('add-money-active');
+            };
+            
+            const loadTabContent = (tabName) => {
+                if (tabName === 'add-money' || tabName === 'transfer-money') {
+                     renderRequestFiltersAndList(tabName);
+                } else if (tabName === 'charge-settings') {
+                     renderChargeSettingsForm();
+                }
+            };
+
+            addMoneyTab.addEventListener('click', () => {
+                currentTab = 'add-money';
+                setActiveTab(addMoneyTab);
+                loadTabContent(currentTab);
+            });
+            transferMoneyTab.addEventListener('click', () => {
+                currentTab = 'transfer-money';
+                setActiveTab(transferMoneyTab);
+                loadTabContent(currentTab);
+            });
+            chargeSettingsTab.addEventListener('click', () => {
+                currentTab = 'charge-settings';
+                setActiveTab(chargeSettingsTab);
+                loadTabContent(currentTab);
+            });
+
+            // Load initial tab
+            setActiveTab(addMoneyTab);
+            loadTabContent(currentTab);
+        }
+
+        // Renders filters and list container for money requests
+        function renderRequestFiltersAndList(requestType) {
+            const adminContentArea = document.getElementById('admin-content-area');
+            adminContentArea.innerHTML = `
+                <div id="status-filters" class="flex space-x-2">
+                    <button class="status-btn active py-1 px-3 text-xs font-medium rounded-full bg-cashpoint-pink text-white" data-status="pending">অপেক্ষমাণ</button>
+                    <button class="status-btn py-1 px-3 text-xs font-medium rounded-full bg-gray-300 text-gray-700" data-status="completed">সম্পূর্ণ</button>
+                    <button class="status-btn py-1 px-3 text-xs font-medium rounded-full bg-gray-300 text-gray-700" data-status="rejected">বাতিল</button>
+                </div>
+                <div id="requests-list" class="space-y-3">
+                    </div>
+            `;
+
+            let currentStatus = 'pending';
+            
+            document.querySelectorAll('.status-btn').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    document.querySelectorAll('.status-btn').forEach(btn => {
+                        btn.classList.remove('bg-cashpoint-pink', 'text-white');
+                        btn.classList.add('bg-gray-300', 'text-gray-700');
+                    });
+                    e.target.classList.add('bg-cashpoint-pink', 'text-white');
+                    currentStatus = e.target.dataset.status;
+                    loadRequests(requestType, currentStatus);
+                });
+            });
+
+            loadRequests(requestType, currentStatus);
+        }
+
+        // Renders the form for charge settings
+        async function renderChargeSettingsForm() {
+            const adminContentArea = document.getElementById('admin-content-area');
+            adminContentArea.innerHTML = `<div class="text-center p-5">Loading...</div>`;
+            
+            const currentConfig = appConfig; 
+
+            adminContentArea.innerHTML = `
+                <form id="charge-form" class="space-y-6">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-700 border-b pb-2 mb-2">অ্যাড মানি নম্বর</h3>
+                        <div class="grid grid-cols-1 gap-4">
+                            <div>
+                                <label for="admin-bkash-number" class="block text-sm font-medium text-gray-600">বিকাশ নম্বর</label>
+                                <input type="tel" id="admin-bkash-number" value="${currentConfig.paymentNumbers.bkash || ''}" class="mt-1 w-full p-2 border border-gray-300 rounded-md">
+                            </div>
+                            <div>
+                                <label for="admin-nagad-number" class="block text-sm font-medium text-gray-600">নগদ নম্বর</label>
+                                <input type="tel" id="admin-nagad-number" value="${currentConfig.paymentNumbers.nagad || ''}" class="mt-1 w-full p-2 border border-gray-300 rounded-md">
+                            </div>
+                        </div>
+                    </div>
+                
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-700 border-b pb-2 mb-2">সেন্ড মানি চার্জ</h3>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label for="send-percentage" class="block text-sm font-medium text-gray-600">পার্সেন্টেজ (%)</label>
+                                <input type="number" step="0.01" id="send-percentage" value="${currentConfig.charges.send.percentage}" class="mt-1 w-full p-2 border border-gray-300 rounded-md">
+                            </div>
+                            <div>
+                                <label for="send-fixed" class="block text-sm font-medium text-gray-600">নির্দিষ্ট টাকা (৳)</label>
+                                <input type="number" step="0.01" id="send-fixed" value="${currentConfig.charges.send.fixed}" class="mt-1 w-full p-2 border border-gray-300 rounded-md">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-700 border-b pb-2 mb-2">টাকা ট্রান্সফার চার্জ</h3>
+                         <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label for="transfer-percentage" class="block text-sm font-medium text-gray-600">পার্সেন্টেজ (%)</label>
+                                <input type="number" step="0.01" id="transfer-percentage" value="${currentConfig.charges.transfer.percentage}" class="mt-1 w-full p-2 border border-gray-300 rounded-md">
+                            </div>
+                            <div>
+                                <label for="transfer-fixed" class="block text-sm font-medium text-gray-600">নির্দিষ্ট টাকা (৳)</label>
+                                <input type="number" step="0.01" id="transfer-fixed" value="${currentConfig.charges.transfer.fixed}" class="mt-1 w-full p-2 border border-gray-300 rounded-md">
+                            </div>
+                        </div>
+                    </div>
+
+                     <div>
+                        <h3 class="text-lg font-semibold text-gray-700 border-b pb-2 mb-2">রিজার্ভ মানি (ফ্রি ট্রান্সফার)</h3>
+                         <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label for="reserve-bkash" class="block text-sm font-medium text-gray-600">বিকাশ রিজার্ভ (৳)</label>
+                                <input type="number" step="100" id="reserve-bkash" value="${currentConfig.reserve.bkash}" class="mt-1 w-full p-2 border border-gray-300 rounded-md">
+                            </div>
+                            <div>
+                                <label for="reserve-nagad" class="block text-sm font-medium text-gray-600">নগদ রিজার্ভ (৳)</label>
+                                <input type="number" step="100" id="reserve-nagad" value="${currentConfig.reserve.nagad}" class="mt-1 w-full p-2 border border-gray-300 rounded-md">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="w-full py-2 bg-cashpoint-pink text-white font-bold rounded-lg shadow-md hover:bg-pink-700 transition-colors">পরিবর্তন সেভ করুন</button>
+                </form>
+            `;
+            
+            document.getElementById('charge-form').addEventListener('submit', handleSaveChargeSettings);
+        }
+
+        // Handles saving the new charge settings to Firestore
+        async function handleSaveChargeSettings(event) {
+            event.preventDefault();
+            showLoading(true);
+
+            const newConfig = {
+                charges: {
+                    send: {
+                        percentage: parseFloat(document.getElementById('send-percentage').value) || 0,
+                        fixed: parseFloat(document.getElementById('send-fixed').value) || 0
+                    },
+                    transfer: {
+                        percentage: parseFloat(document.getElementById('transfer-percentage').value) || 0,
+                        fixed: parseFloat(document.getElementById('transfer-fixed').value) || 0
+                    }
+                },
+                reserve: {
+                    bkash: parseFloat(document.getElementById('reserve-bkash').value) || 0,
+                    nagad: parseFloat(document.getElementById('reserve-nagad').value) || 0
+                },
+                paymentNumbers: {
+                    bkash: document.getElementById('admin-bkash-number').value.trim() || '',
+                    nagad: document.getElementById('admin-nagad-number').value.trim() || ''
+                }
+            };
+            
+            try {
+                const configDocRef = doc(db, `artifacts/${appId}/admin_config/settings`);
+                await setDoc(configDocRef, newConfig, { merge: true });
+                showMessage("সেটিংস সফলভাবে আপডেট হয়েছে।");
+            } catch (error) {
+                console.error("Error saving settings:", error);
+                showMessage("সেটিং সেভ করতে সমস্যা হয়েছে।");
+            } finally {
+                showLoading(false);
+            }
+        }
+
+
+        async function loadRequests(type, status) {
+            showLoading(true);
+            const requestsListEl = document.getElementById('requests-list');
+            if (!requestsListEl) { 
+                showLoading(false);
+                return; 
+            }
+            requestsListEl.innerHTML = '<div class="text-center p-5"><div class="animate-spin rounded-full h-8 w-8 border-4 border-cashpoint-pink border-t-transparent mx-auto"></div></div>';
+            
+            const collectionName = type === 'add-money' ? 'add_money_requests' : 'money_transfer_requests';
+            const q = query(collection(db, `artifacts/${appId}/${collectionName}`), where('status', '==', status));
+            
+            try {
+                const querySnapshot = await getDocs(q);
+                const requests = [];
+                for (const docSnap of querySnapshot.docs) {
+                    const requestData = docSnap.data();
+                    const userDocRef = doc(db, `artifacts/${appId}/users`, requestData.userId);
+                    const userDoc = await getDoc(userDocRef);
+                    const userName = userDoc.exists() ? userDoc.data().name : 'Unknown User';
+                    requests.push({ id: docSnap.id, ...requestData, userName });
+                }
+
+                requestsListEl.innerHTML = ''; // Clear spinner
+
+                if (requests.length === 0) {
+                    requestsListEl.innerHTML = `<p class="text-center text-gray-500 mt-4">এই মুহূর্তে কোনো ${status === 'pending' ? 'অপেক্ষমাণ' : status === 'completed' ? 'সম্পূর্ণ' : 'বাতিল'} রিকোয়েস্ট নেই।</p>`;
+                } else {
+                    requests.forEach(request => {
+                        const requestEl = document.createElement('div');
+                        requestEl.className = `bg-white rounded-lg shadow-sm overflow-hidden`;
+                        
+                        let title, icon, color;
+                        if (type === 'add-money') {
+                            title = 'অ্যাড মানি রিকোয়েস্ট';
+                            icon = 'fa-plus';
+                            color = 'text-cashpoint-pink';
+                        } else {
+                            title = 'ট্রান্সফার রিকোয়েস্ট';
+                            icon = 'fa-exchange-alt';
+                            color = 'text-blue-500';
+                        }
+
+                        let details = '';
+                        if (type === 'add-money') {
+                            details = `
+                                <div class="text-xs text-gray-600 space-y-1 text-left">
+                                    <p><span>ব্যবহারকারীর নম্বর:</span> <span class="font-mono font-semibold">${request.senderNumber}</span></p>
+                                    <p><span>অ্যাডমিন নম্বর:</span> <span class="font-mono font-semibold">${request.recipientAdminNumber}</span></p>
+                                    <p><span>ট্রানজেকশন আইডি:</span> <span class="font-mono font-semibold">${request.txId}</span></p>
+                                </div>`;
+                        } else {
+                            details = `<p class="text-xs text-gray-500">To: <span class="font-mono">${request.recipientNumber}</span> (${request.method})</p>`;
+                        }
+                        
+                        let buttons = '';
+                        if (status === 'pending') {
+                            buttons = `
+                                <div class="flex space-x-2 pt-3">
+                                    <button class="accept-btn flex-1 bg-green-500 text-white px-3 py-1.5 text-xs font-bold rounded-md hover:bg-green-600" data-id="${request.id}" data-type="${type}" data-user-id="${request.userId}" data-amount="${request.amount}" data-transaction-ref="${request.transactionRef || ''}">গ্রহণ</button>
+                                    <button class="reject-btn flex-1 bg-red-500 text-white px-3 py-1.5 text-xs font-bold rounded-md hover:bg-red-600" data-id="${request.id}" data-type="${type}" data-user-id="${request.userId}" data-amount="${request.amount}" data-transaction-ref="${request.transactionRef || ''}">বাতিল</button>
+                                </div>
+                            `;
+                        }
+
+                        const date = request.timestamp ? request.timestamp.toDate() : new Date();
+                        const time = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+                        const dateStr = date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+
+                        requestEl.innerHTML = `
+                           <div class="p-3">
+                                <div class="flex items-center">
+                                    <div class="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center ${color} font-bold mr-4">
+                                        <i class="fas ${icon}"></i>
+                                    </div>
+                                    <div class="flex-grow">
+                                        <p class="font-semibold text-gray-800">${request.userName}</p>
+                                        <p class="text-xs text-gray-500">${title}</p>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="font-bold text-gray-800 text-lg">৳ ${request.amount.toFixed(2)}</p>
+                                        <p class="text-xs text-gray-400">${time}, ${dateStr}</p>
+                                    </div>
+                                </div>
+                                <div class="mt-2 border-t border-gray-100 pt-2">
+                                     ${details}
+                                </div>
+                           </div>
+                           ${buttons ? `<div class="bg-gray-50 p-2">${buttons}</div>` : ''}
+                        `;
+                        requestsListEl.appendChild(requestEl);
+                    });
+
+                    document.querySelectorAll('.accept-btn').forEach(button => button.addEventListener('click', handleRequestAction));
+                    document.querySelectorAll('.reject-btn').forEach(button => button.addEventListener('click', handleRequestAction));
+                }
+            } catch (error) {
+                console.error("Error loading requests:", error);
+                requestsListEl.innerHTML = `<p class="text-center text-red-500 mt-4">রিকোয়েস্ট লোড করতে সমস্যা হয়েছে।</p>`;
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function handleRequestAction(event) {
+            const button = event.target;
+            const requestId = button.dataset.id;
+            const requestType = button.dataset.type;
+            const userId = button.dataset.userId;
+            const amount = parseFloat(button.dataset.amount);
+            const transactionRef = button.dataset.transactionRef;
+            const action = button.classList.contains('accept-btn') ? 'completed' : 'rejected';
+
+            showLoading(true);
+            try {
+                const requestCollectionName = requestType === 'add-money' ? 'add_money_requests' : 'money_transfer_requests';
+                const requestDocRef = doc(db, `artifacts/${appId}/${requestCollectionName}`, requestId);
+                const userDocRef = doc(db, `artifacts/${appId}/users/${userId}`);
+
+                if (action === 'completed' && requestType === 'add-money') {
+                    await runTransaction(db, async (transaction) => {
+                        transaction.update(userDocRef, { balance: increment(amount) });
+                        transaction.update(requestDocRef, { status: action });
+                        const txDocRef = doc(db, `artifacts/${appId}/users/${userId}/transactions`, transactionRef);
+                        transaction.update(txDocRef, { status: action });
+                    });
+                    showMessage("অ্যাড মানি রিকোয়েস্ট গ্রহণ করা হয়েছে।");
+                } else if (action === 'completed' && requestType === 'transfer-money') {
+                    const userTxCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/transactions`);
+                    const qTx = query(userTxCollectionRef, where("type", "==", "transfer"), where("amount", "==", amount), where("status", "==", "pending"));
+                    const txDocs = await getDocs(qTx);
+                    if (!txDocs.empty) {
+                        const txDocRef = doc(userTxCollectionRef, txDocs.docs[0].id);
+                        await updateDoc(requestDocRef, { status: action });
+                        await updateDoc(txDocRef, { status: action });
+                    } else {
+                         await updateDoc(requestDocRef, { status: action });
+                    }
+                    showMessage("ট্রান্সফার রিকোয়েস্ট গ্রহণ করা হয়েছে।");
+                } else if (action === 'rejected' && requestType === 'add-money') {
+                    const txDocRef = doc(db, `artifacts/${appId}/users/${userId}/transactions`, transactionRef);
+                    await updateDoc(txDocRef, { status: action });
+                    await deleteDoc(requestDocRef);
+                    showMessage("অ্যাড মানি রিকোয়েস্ট বাতিল করা হয়েছে।");
+                } else if (action === 'rejected' && requestType === 'transfer-money') {
+                    const requestDoc = await getDoc(requestDocRef);
+                    const requestData = requestDoc.data();
+                    const configDocRef = doc(db, `artifacts/${appId}/admin_config/settings`);
+
+                    await runTransaction(db, async (transaction) => {
+                        const totalRefund = requestData.amount + (requestData.charge || 0);
+                        transaction.update(userDocRef, { balance: increment(totalRefund) });
+                        
+                        if (requestData.reserveUsed && requestData.reserveUsed > 0) {
+                            transaction.update(configDocRef, { [`reserve.${requestData.method}`]: increment(requestData.reserveUsed) });
+                        }
+                        
+                        const txCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/transactions`);
+                        const qTx = query(txCollectionRef, where("type", "==", "transfer"), where("amount", "==", amount), where("status", "==", "pending"));
+                        const txDocs = await getDocs(qTx);
+                        if (!txDocs.empty) {
+                            const txDocRef = doc(txCollectionRef, txDocs.docs[0].id);
+                            transaction.update(txDocRef, { status: "rejected" });
+                        }
+                    });
+                    await deleteDoc(requestDocRef);
+                    showMessage("ট্রান্সফার রিকোয়েস্ট বাতিল করা হয়েছে এবং টাকা ফেরত দেওয়া হয়েছে।");
+                }
+                
+                loadRequests(requestType, 'pending');
+
+            } catch (error) {
+                console.error("Error handling request action:", error);
+                showMessage("রিকোয়েস্ট কার্যক্রমে সমস্যা হয়েছে।");
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Handle user logout
+        async function handleLogout() {
+            try {
+                if (unsubscribeFromProfile) {
+                    unsubscribeFromProfile();
+                }
+                if (unsubscribeFromRequests) {
+                    unsubscribeFromRequests();
+                }
+                if (unsubscribeFromTransfers) {
+                    unsubscribeFromTransfers();
+                }
+                await signOut(auth);
+                showMessage("আপনি সফলভাবে লগআউট করেছেন।");
+            } catch (error) {
+                console.error("Logout Failed:", error);
+                showMessage("লগআউট ব্যর্থ হয়েছে।");
+            }
+        }
+        
+        // Copy to clipboard function
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                showMessage("আইডি কপি করা হয়েছে!");
+            }).catch(err => {
+                console.error('Failed to copy text: ', err);
+                showMessage("কপি করতে ব্যর্থ হয়েছে।");
+            });
+        }
+        window.copyToClipboard = copyToClipboard; // Make the function globally accessible
+
+        // Auth state change listener
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                bottomNav.classList.remove('hidden');
+                currentUser = user;
+                const profileDocRef = doc(db, `artifacts/${appId}/users/${user.uid}`);
+                
+                if (unsubscribeFromProfile) unsubscribeFromProfile();
+                unsubscribeFromProfile = onSnapshot(profileDocRef, (docSnap) => {
+                    if (docSnap.exists()){
+                        const profileData = docSnap.data();
+                        
+                        // Automatically add isAdmin field if it doesn't exist for older users
+                        if (profileData.isAdmin === undefined) {
+                            updateDoc(profileDocRef, { isAdmin: false });
+                            return; // The listener will re-trigger with the updated data
+                        }
+
+                        isAdmin = profileData.isAdmin;
+                        
+                        if(adminSettingsMenuBtn) {
+                            if (isAdmin) {
+                                adminSettingsMenuBtn.classList.remove('hidden');
+                            } else {
+                                adminSettingsMenuBtn.classList.add('hidden');
+                            }
+                        }
+
+                        if (!document.body.contains(document.getElementById('admin-content-area'))) {
+                            renderDashboard(profileData);
+                        }
+                        renderSidebar(profileData);
+
+                    } else {
+                        // This case handles users that might have authenticated but don't have a DB record yet
+                        // e.g. after a Google Sign-In, though that flow now creates the doc.
+                         const profileData = { name: user.displayName || 'ব্যবহারকারী', mobile: '', dob: '', balance: 0.00, isAdmin: false };
+                         isAdmin = false;
+                         if (adminSettingsMenuBtn) adminSettingsMenuBtn.classList.add('hidden');
+                         
+                         if (!document.body.contains(document.getElementById('admin-content-area'))) {
+                            renderDashboard(profileData);
+                        }
+                         renderSidebar(profileData);
+                    }
+
+                }, (error) => {
+                    console.error("Error fetching real-time profile data:", error);
+                    showMessage("প্রোফাইল ডেটা লোড করতে সমস্যা হয়েছে।");
+                    renderDashboard({ name: user.displayName || 'ব্যবহারকারী', mobile: '', dob: '', balance: 0.00, isAdmin: false });
+                    renderSidebar({ name: user.displayName || 'ব্যবহারকারী' });
+                });
+
+                // Set up real-time listener for add money requests
+                if (unsubscribeFromRequests) unsubscribeFromRequests();
+                const qRequests = query(collection(db, `artifacts/${appId}/add_money_requests`), where("userId", "==", user.uid), where("status", "==", "pending"));
+                unsubscribeFromRequests = onSnapshot(qRequests, async (querySnapshot) => {
+                    const requestsListEl = document.getElementById('requests-list');
+                    if (requestsListEl && document.body.contains(requestsListEl)) {
+                         const requests = [];
+                         querySnapshot.forEach(doc => requests.push({ id: doc.id, ...doc.data() }));
+                         // Re-render only pending requests section, not whole dashboard
+                         const pendingSection = document.getElementById('pending-requests-section');
+                         if(pendingSection) renderPendingRequests(pendingSection);
+                    }
+                });
+
+                 if (unsubscribeFromTransfers) unsubscribeFromTransfers();
+                const qTransfers = query(collection(db, `artifacts/${appId}/money_transfer_requests`), where("userId", "==", user.uid), where("status", "==", "pending"));
+                unsubscribeFromTransfers = onSnapshot(qTransfers, (querySnapshot) => {
+                     const requestsListEl = document.getElementById('requests-list');
+                    if (requestsListEl && document.body.contains(requestsListEl)) {
+                         const pendingSection = document.getElementById('pending-requests-section');
+                         if(pendingSection) renderPendingRequests(pendingSection);
+                    }
+                });
+
+            } else {
+                bottomNav.classList.add('hidden');
+                currentUser = null;
+                if (unsubscribeFromProfile) unsubscribeFromProfile();
+                if (unsubscribeFromRequests) unsubscribeFromRequests();
+                if (unsubscribeFromTransfers) unsubscribeFromTransfers();
+                renderLandingPage();
+                headerUserName.textContent = '';
+                sidebarUserName.textContent = '';
+                sidebarUserMobile.textContent = '';
+                sidebarInitial.textContent = '';
+                menuSidebar.classList.remove('open');
+            }
+            showLoading(false);
+        });
+
+        async function renderPendingRequests(container) {
+            const addMoneyQuery = query(collection(db, `artifacts/${appId}/add_money_requests`), where("userId", "==", currentUser.uid), where("status", "==", "pending"));
+            const transferMoneyQuery = query(collection(db, `artifacts/${appId}/money_transfer_requests`), where("userId", "==", currentUser.uid), where("status", "==", "pending"));
+
+            const [addMoneySnapshot, transferMoneySnapshot] = await Promise.all([getDocs(addMoneyQuery), getDocs(transferMoneyQuery)]);
+
+            const requestsListEl = container.querySelector('#requests-list');
+            requestsListEl.innerHTML = '';
+            
+            let hasRequests = false;
+
+            addMoneySnapshot.forEach(doc => {
+                hasRequests = true;
+                const request = doc.data();
+                const requestEl = document.createElement('div');
+                requestEl.className = 'p-3 bg-white rounded-lg shadow-sm flex items-center justify-between';
+                requestEl.innerHTML = `
+                    <div>
+                        <p class="text-sm font-semibold">${request.method.toUpperCase()} থেকে ৳ ${request.amount}</p>
+                        <p class="text-xs text-gray-500">ট্রানজেকশন আইডি: <span class="font-mono">${request.txId}</span></p>
+                    </div>
+                    <span class="text-xs font-semibold text-orange-500"><i class="fas fa-clock mr-1"></i> অপেক্ষমাণ</span>
+                `;
+                requestsListEl.appendChild(requestEl);
+            });
+            
+            transferMoneySnapshot.forEach(doc => {
+                hasRequests = true;
+                const transfer = doc.data();
+                 const transferEl = document.createElement('div');
+                transferEl.className = 'p-3 bg-white rounded-lg shadow-sm flex items-center justify-between';
+                transferEl.innerHTML = `
+                    <div>
+                        <p class="text-sm font-semibold">${transfer.method.toUpperCase()} তে ট্রান্সফার রিকোয়েস্ট: ৳ ${transfer.amount}</p>
+                        <p class="text-xs text-gray-500">প্রাপকের নম্বর: <span class="font-mono">${transfer.recipientNumber}</span></p>
+                    </div>
+                    <span class="text-xs font-semibold text-orange-500"><i class="fas fa-clock mr-1"></i> অপেক্ষমাণ</span>
+                `;
+                requestsListEl.appendChild(transferEl);
+            });
+
+            if (!hasRequests) {
+                requestsListEl.innerHTML = '<p class="text-center text-gray-500">কোনো অনুরোধ নেই।</p>';
+            }
+        }
+        
+        async function listenForConfigUpdates() {
+            const configDocRef = doc(db, `artifacts/${appId}/admin_config/settings`);
+            
+            const docSnap = await getDoc(configDocRef);
+            if (docSnap.exists()) {
+                 appConfig = { ...appConfig, ...docSnap.data() };
+            } else {
+                 try {
+                    await setDoc(configDocRef, appConfig); // Create with default values
+                } catch (error) {
+                    console.error("Failed to create default app config:", error);
+                }
+            }
+
+
+            onSnapshot(configDocRef, (doc) => {
+                if (doc.exists()) {
+                    appConfig = { ...appConfig, ...doc.data() };
+                }
+            }, (error) => {
+                console.error("Error listening for config updates:", error);
+            });
+        }
+
+
+        // Initial sign-in with custom token or anonymously
+        window.onload = async () => {
+            showLoading(true);
+            await listenForConfigUpdates();
+            try {
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (error) {
+                console.error("Firebase Auth initialization failed:", error);
+            } finally {
+                showLoading(false);
+            }
+        };
+
+        // Event listeners
+        logoutBtn.addEventListener('click', handleLogout);
+        menuBtn.addEventListener('click', handleMenuClick);
+        updateInfoBtn.addEventListener('click', () => {
+            const profileDocRef = doc(db, `artifacts/${appId}/users/${currentUser.uid}`);
+            onSnapshot(profileDocRef, (docSnap) => {
+                const profileData = docSnap.exists() ? docSnap.data() : {};
+                renderUpdateInfoForm(profileData);
+                menuSidebar.classList.remove('open');
+            });
+        });
+        
+        adminSettingsMenuBtn.addEventListener('click', () => {
+            if (isAdmin) {
+                renderAdminDashboard();
+                menuSidebar.classList.remove('open');
+            }
+        });
+
+
+        // Add event listener for the new Home button
+        if (homeBtn) {
+            homeBtn.addEventListener('click', () => {
+                const profileDocRef = doc(db, `artifacts/${appId}/users/${currentUser.uid}`);
+                onSnapshot(profileDocRef, (docSnap) => {
+                    const profileData = docSnap.exists() ? docSnap.data() : { name: 'ব্যবহারকারী', mobile: '', dob: '', balance: 0.00 };
+                    renderDashboard(profileData);
+                    renderSidebar(profileData);
+                });
+            });
+        }
+        // Add event listener for the Home button in the sidebar
+        if (homeBtnMenu) {
+            homeBtnMenu.addEventListener('click', () => {
+                const profileDocRef = doc(db, `artifacts/${appId}/users/${currentUser.uid}`);
+                onSnapshot(profileDocRef, (docSnap) => {
+                    const profileData = docSnap.exists() ? docSnap.data() : { name: 'ব্যবহারকারী', mobile: '', dob: '', balance: 0.00 };
+                    renderDashboard(profileData);
+                    renderSidebar(profileData);
+                });
+                menuSidebar.classList.remove('open');
+            });
+        }
+        // Add event listener for statement button in the sidebar
+        if (statementBtnMenu) {
+            statementBtnMenu.addEventListener('click', () => {
+                showLoading(true);
+                const txCollectionRef = collection(db, `artifacts/${appId}/users/${currentUser.uid}/transactions`);
+                const q = query(txCollectionRef);
+                onSnapshot(q, (querySnapshot) => {
+                    const transactions = [];
+                    querySnapshot.forEach(doc => {
+                        transactions.push({ id: doc.id, ...doc.data() });
+                    });
+                    transactions.sort((a, b) => b.timestamp - a.timestamp); // Sort by timestamp in memory
+                    renderStatementPage(transactions);
+                    showLoading(false);
+                }, (error) => {
+                    console.error("Error fetching transactions:", error);
+                    showMessage("লেনদেন আনতে সমস্যা হয়েছে।");
+                    showLoading(false);
+                });
+                menuSidebar.classList.remove('open');
+            });
+        }
     </script>
 </body>
 </html>
