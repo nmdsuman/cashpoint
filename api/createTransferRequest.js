@@ -77,7 +77,9 @@ export default async function handler(req, res) {
             }
             
             // ৫. অ্যাডমিন সেটিংস থেকে চার্জ এবং রিজার্ভের তথ্য নিন
-            const appConfig = configDoc.exists() ? configDoc.data() : {};
+            // ❗️❗️ এখানেই সমস্যাটি ছিল এবং এটি সংশোধন করা হয়েছে
+            // configDoc.exists() কে পরিবর্তন করে configDoc.exists করা হয়েছে
+            const appConfig = configDoc.exists ? configDoc.data() : {};
             const chargeConfig = appConfig.charges?.transfer || { percentage: 0, fixed: 0 };
             const reserveLimit = appConfig.reserve?.[method] || 0;
 
@@ -100,7 +102,6 @@ export default async function handler(req, res) {
                 transaction.update(configDocRef, { [`reserve.${method}`]: admin.firestore.FieldValue.increment(-reserveUsed) });
             }
 
-            // ❗️❗️ কোড আপডেট করা হয়েছে ❗️❗️
             // প্রথমে ব্যবহারকারীর জন্য ট্রানজেকশন তৈরি করা হচ্ছে
             const userTransactionId = generateTransactionId();
             const userTransactionRef = userDocRef.collection("transactions").doc();
@@ -125,7 +126,7 @@ export default async function handler(req, res) {
                 timestamp: admin.firestore.FieldValue.serverTimestamp(),
                 charge: totalCharge,
                 reserveUsed: reserveUsed,
-                userTransactionRefId: userTransactionRef.id // <-- সবচেয়ে গুরুত্বপূর্ণ পরিবর্তন
+                userTransactionRefId: userTransactionRef.id
             });
         });
 
