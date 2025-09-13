@@ -2096,7 +2096,6 @@
                     break;
                 case '/dashboard':
                 case '/':
-                default: 
                     if(user) {
                         const userDocRef = doc(db, `artifacts/${appId}/users/${user.uid}`);
                         const docSnap = await getDoc(userDocRef);
@@ -2106,7 +2105,6 @@
                          renderLandingPage();
                     }
                     break;
-                // নতুন রুট যোগ করা হয়েছে
                 case '/add-money':
                     if(user) showAddMoneyOptions();
                     break;
@@ -2115,6 +2113,10 @@
                     break;
                 case '/send-money':
                     if(user) renderSendMoneyFormStep1();
+                    break;
+                default: 
+                    // যদি কোন লিঙ্ক না মিলে, হোম পেজে পাঠিয়ে দিন
+                    navigateTo('/');
                     break;
             }
         };
