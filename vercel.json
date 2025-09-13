@@ -1,23 +1,11 @@
 {
   "rewrites": [
     {
-      "source": "/admin-panel",
-      "destination": "/index.html"
+      "source": "/api/:path*",
+      "destination": "/api/:path*"
     },
     {
-      "source": "/sing-up",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/login",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/statement",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/:path((?!api/|.*\\.).*)",
+      "source": "/:path((?!api/).*)",
       "destination": "/index.html"
     }
   ]
