@@ -1738,7 +1738,8 @@
                 showLoading(false);
             }
         }
-
+        
+        // ❗️❗️ ফাংশন আপডেট করা হয়েছে ❗️❗️
         // [SECURE] Loads and displays requests for the admin panel
         async function loadRequests(type, status) {
             showLoading(true);
@@ -1833,10 +1834,11 @@
                         if (currentStatus === 'pending') {
                             const buttonContainer = document.createElement('div');
                             buttonContainer.className = 'bg-gray-50 p-2';
+                            // নিচের অংশে data-transaction-ref-id যোগ করা হয়েছে
                             buttonContainer.innerHTML = `
                                 <div class="flex space-x-2 pt-3">
-                                    <button class="accept-btn flex-1 bg-green-500 text-white px-3 py-1.5 text-xs font-bold rounded-md hover:bg-green-600" data-id="${request.id}" data-type="${type}" data-user-id="${request.userId}" data-amount="${request.amount}" data-transaction-ref="${request.transactionRef || ''}">গ্রহণ</button>
-                                    <button class="reject-btn flex-1 bg-red-500 text-white px-3 py-1.5 text-xs font-bold rounded-md hover:bg-red-600" data-id="${request.id}" data-type="${type}" data-user-id="${request.userId}" data-amount="${request.amount}" data-transaction-ref="${request.transactionRef || ''}">বাতিল</button>
+                                    <button class="accept-btn flex-1 bg-green-500 text-white px-3 py-1.5 text-xs font-bold rounded-md hover:bg-green-600" data-id="${request.id}" data-type="${type}" data-user-id="${request.userId}" data-amount="${request.amount}" data-transaction-ref="${request.transactionRef || ''}" data-transaction-ref-id="${request.userTransactionRefId || ''}">গ্রহণ</button>
+                                    <button class="reject-btn flex-1 bg-red-500 text-white px-3 py-1.5 text-xs font-bold rounded-md hover:bg-red-600" data-id="${request.id}" data-type="${type}" data-user-id="${request.userId}" data-amount="${request.amount}" data-transaction-ref="${request.transactionRef || ''}" data-transaction-ref-id="${request.userTransactionRefId || ''}">বাতিল</button>
                                 </div>`;
                             requestEl.appendChild(buttonContainer);
                         }
@@ -1854,14 +1856,16 @@
                 showLoading(false);
             }
         }
-
+        
+        // ❗️❗️ ফাংশন আপডেট করা হয়েছে ❗️❗️
         async function handleRequestAction(event) {
             const button = event.target;
             const requestId = button.dataset.id;
             const requestType = button.dataset.type;
             const userId = button.dataset.userId;
             const amount = parseFloat(button.dataset.amount);
-            const transactionRef = button.dataset.transactionRef;
+            const transactionRef = button.dataset.transactionRef; // for add money
+            const userTransactionRefId = button.dataset.transactionRefId; // for transfer money
             const action = button.classList.contains('accept-btn') ? 'completed' : 'rejected';
 
             showLoading(true);
@@ -1878,27 +1882,34 @@
                         transaction.update(txDocRef, { status: action });
                     });
                     showMessage("অ্যাড মানি রিকোয়েস্ট গ্রহণ করা হয়েছে।");
-                } else if (action === 'completed' && requestType === 'transfer-money') {
-                    const userTxCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/transactions`);
-                    const qTx = query(userTxCollectionRef, where("type", "==", "transfer"), where("amount", "==", amount), where("status", "==", "pending"));
-                    const txDocs = await getDocs(qTx);
-                    if (!txDocs.empty) {
-                        const txDocRef = doc(userTxCollectionRef, txDocs.docs[0].id);
-                        await updateDoc(requestDocRef, { status: action });
-                        await updateDoc(txDocRef, { status: action });
-                    } else {
-                         await updateDoc(requestDocRef, { status: action });
+                } 
+                else if (action === 'completed' && requestType === 'transfer-money') {
+                    if (!userTransactionRefId) {
+                        throw new Error("ব্যবহারকারীর লেনদেনের রেফারেন্স খুঁজে পাওয়া যায়নি।");
                     }
+                    const userTxDocRef = doc(db, `artifacts/${appId}/users/${userId}/transactions`, userTransactionRefId);
+
+                    await runTransaction(db, async (transaction) => {
+                        transaction.update(requestDocRef, { status: action });
+                        transaction.update(userTxDocRef, { status: action });
+                    });
+                    
                     showMessage("ট্রান্সফার রিকোয়েস্ট গ্রহণ করা হয়েছে।");
-                } else if (action === 'rejected' && requestType === 'add-money') {
+                }
+                else if (action === 'rejected' && requestType === 'add-money') {
                     const txDocRef = doc(db, `artifacts/${appId}/users/${userId}/transactions`, transactionRef);
                     await updateDoc(txDocRef, { status: action });
-                    await deleteDoc(requestDocRef);
+                    await updateDoc(requestDocRef, { status: action }); // Delete না করে rejected করা হলো
                     showMessage("অ্যাড মানি রিকোয়েস্ট বাতিল করা হয়েছে।");
-                } else if (action === 'rejected' && requestType === 'transfer-money') {
+                }
+                else if (action === 'rejected' && requestType === 'transfer-money') {
+                     if (!userTransactionRefId) {
+                        throw new Error("ব্যবহারকারীর লেনদেনের রেফারেন্স খুঁজে পাওয়া যায়নি।");
+                    }
                     const requestDoc = await getDoc(requestDocRef);
                     const requestData = requestDoc.data();
                     const configDocRef = doc(db, `artifacts/${appId}/admin_config/settings`);
+                    const userTxDocRef = doc(db, `artifacts/${appId}/users/${userId}/transactions`, userTransactionRefId);
 
                     await runTransaction(db, async (transaction) => {
                         const totalRefund = requestData.amount + (requestData.charge || 0);
@@ -1908,15 +1919,9 @@
                             transaction.update(configDocRef, { [`reserve.${requestData.method}`]: increment(requestData.reserveUsed) });
                         }
                         
-                        const txCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/transactions`);
-                        const qTx = query(txCollectionRef, where("type", "==", "transfer"), where("amount", "==", amount), where("status", "==", "pending"));
-                        const txDocs = await getDocs(qTx);
-                        if (!txDocs.empty) {
-                            const txDocRef = doc(txCollectionRef, txDocs.docs[0].id);
-                            transaction.update(txDocRef, { status: "rejected" });
-                        }
+                        transaction.update(userTxDocRef, { status: "rejected" });
+                        transaction.update(requestDocRef, { status: "rejected" });
                     });
-                    await deleteDoc(requestDocRef);
                     showMessage("ট্রান্সফার রিকোয়েস্ট বাতিল করা হয়েছে এবং টাকা ফেরত দেওয়া হয়েছে।");
                 }
                 
@@ -1926,7 +1931,7 @@
 
             } catch (error) {
                 console.error("Error handling request action:", error);
-                showMessage("রিকোয়েস্ট কার্যক্রমে সমস্যা হয়েছে।");
+                showMessage("রিকোয়েস্ট কার্যক্রমে সমস্যা হয়েছে: " + error.message);
             } finally {
                 showLoading(false);
             }
