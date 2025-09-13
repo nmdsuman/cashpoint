@@ -125,6 +125,12 @@
                     <i class="fas fa-sync-alt text-xl text-cashpoint-pink"></i>
                     <span class="text-gray-700 font-medium">তথ্য হালনাগাদ</span>
                 </li>
+                
+                <li id="pin-setup-menu-btn" class="p-3 flex items-center space-x-4 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors">
+                    <i class="fas fa-key text-xl text-cashpoint-pink"></i>
+                    <span class="text-gray-700 font-medium">পিন সেটআপ</span>
+                </li>
+                
                 <li class="p-3 flex items-center space-x-4 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors">
                     <i class="fas fa-user-edit text-xl text-cashpoint-pink"></i>
                     <span class="text-gray-700 font-medium">নমিনির তথ্য হালনাগাদ</span>
@@ -252,6 +258,7 @@
         const statementBtnMenu = document.getElementById('statement-btn-menu');
         const adminSettingsMenuBtn = document.getElementById('admin-settings-menu-btn');
         const bottomNav = document.getElementById('bottom-nav');
+        const pinSetupMenuBtn = document.getElementById('pin-setup-menu-btn');
 
         // Function to generate a unique transaction ID
         function generateTransactionId() {
@@ -290,7 +297,7 @@
 
         // Handle clicks outside the menu to close it
         document.addEventListener('click', (event) => {
-            if (menuSidebar.classList.contains('open') && !menuSidebar.contains(event.target) && !menuBtn.contains(event.target) && !updateInfoBtn.contains(event.target)) {
+            if (menuSidebar.classList.contains('open') && !menuSidebar.contains(event.target) && !menuBtn.contains(event.target) && !updateInfoBtn.contains(event.target) && !pinSetupMenuBtn.contains(event.target)) {
                 menuSidebar.classList.remove('open');
             }
         });
@@ -434,7 +441,6 @@
             `;
             document.getElementById('profile-form').addEventListener('submit', handleProfileSave);
             document.getElementById('back-to-dashboard-btn').addEventListener('click', () => {
-                // Return to dashboard without forcing update
                 const profileDocRef = doc(db, `artifacts/${appId}/users/${currentUser.uid}`);
                 onSnapshot(profileDocRef, (docSnap) => {
                     const profileData = docSnap.exists() ? docSnap.data() : { name: 'ব্যবহারকারী', mobile: '', dob: '', balance: 0.00 };
@@ -444,6 +450,124 @@
                 menuSidebar.classList.remove('open');
             });
         }
+        
+        // ****** নতুন পিন সেটআপের জন্য ফাংশনগুলো ******
+
+        // পিন সেটআপের জন্য দুটি অপশন দেখানোর ফাংশন
+        function renderPinSetupOptions() {
+            mainContent.innerHTML = `
+                <div class="flex flex-col h-full p-4 space-y-6">
+                    <h2 class="text-2xl font-bold text-cashpoint-pink mb-4">পিন ম্যানেজমেন্ট</h2>
+                    <button id="setup-new-pin-btn" class="w-full py-4 bg-cashpoint-pink text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105">
+                        <i class="fas fa-plus-circle mr-2"></i> নতুন পিন সেটআপ করুন
+                    </button>
+                    <button id="change-pin-btn" class="w-full py-4 bg-gray-700 text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105">
+                        <i class="fas fa-exchange-alt mr-2"></i> পিন পরিবর্তন করুন
+                    </button>
+                    <button id="back-to-dashboard-btn" class="w-full py-3 bg-gray-400 text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105 mt-auto">ফিরে যান</button>
+                </div>
+            `;
+
+            document.getElementById('setup-new-pin-btn').addEventListener('click', renderSetupPinForm);
+            document.getElementById('change-pin-btn').addEventListener('click', renderChangePinForm);
+            document.getElementById('back-to-dashboard-btn').addEventListener('click', () => {
+                const profileDocRef = doc(db, `artifacts/${appId}/users/${currentUser.uid}`);
+                onSnapshot(profileDocRef, (docSnap) => {
+                    const profileData = docSnap.exists() ? docSnap.data() : { name: 'ব্যবহারকারী', balance: 0.00 };
+                    renderDashboard(profileData);
+                });
+            });
+        }
+
+        // নতুন পিন সেটআপ করার ফর্ম
+        function renderSetupPinForm() {
+            mainContent.innerHTML = `
+                <div class="flex flex-col h-full p-4 space-y-6">
+                    <h2 class="text-2xl font-bold text-cashpoint-pink mb-4">নতুন পিন সেটআপ</h2>
+                    <p class="text-sm text-gray-600">আপনি শুধুমাত্র একবার আপনার পিন সেট করতে পারবেন। এরপর থেকে আপনাকে পিন পরিবর্তন করতে হবে।</p>
+                    <form id="setup-pin-form" class="w-full space-y-4">
+                        <input type="password" id="new-pin-input" placeholder="নতুন ৪-সংখ্যার পিন দিন" maxlength="4" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cashpoint-pink">
+                        <button type="submit" class="w-full py-3 bg-cashpoint-pink text-white font-bold rounded-xl shadow-lg">পিন সেট করুন</button>
+                    </form>
+                    <button id="back-to-pin-options-btn" class="w-full py-3 bg-gray-400 text-white font-bold rounded-xl shadow-lg">ফিরে যান</button>
+                </div>
+            `;
+            document.getElementById('setup-pin-form').addEventListener('submit', handleSetupPin);
+            document.getElementById('back-to-pin-options-btn').addEventListener('click', renderPinSetupOptions);
+        }
+
+        // পিন পরিবর্তন করার ফর্ম
+        function renderChangePinForm() {
+            mainContent.innerHTML = `
+                <div class="flex flex-col h-full p-4 space-y-6">
+                    <h2 class="text-2xl font-bold text-cashpoint-pink mb-4">পিন পরিবর্তন করুন</h2>
+                    <form id="change-pin-form" class="w-full space-y-4">
+                        <input type="password" id="old-pin-input" placeholder="আপনার পুরাতন পিন দিন" maxlength="4" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cashpoint-pink">
+                        <input type="password" id="new-pin-input" placeholder="আপনার নতুন পিন দিন" maxlength="4" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cashpoint-pink">
+                        <button type="submit" class="w-full py-3 bg-cashpoint-pink text-white font-bold rounded-xl shadow-lg">পিন পরিবর্তন করুন</button>
+                    </form>
+                    <button id="back-to-pin-options-btn" class="w-full py-3 bg-gray-400 text-white font-bold rounded-xl shadow-lg">ফিরে যান</button>
+                </div>
+            `;
+            document.getElementById('change-pin-form').addEventListener('submit', handleChangePin);
+            document.getElementById('back-to-pin-options-btn').addEventListener('click', renderPinSetupOptions);
+        }
+
+        // API কল করার জন্য হ্যান্ডলার ফাংশন
+        async function handleSetupPin(event) {
+            event.preventDefault();
+            const newPin = document.getElementById('new-pin-input').value;
+            if (newPin.length !== 4) {
+                showMessage("পিন অবশ্যই ৪ সংখ্যার হতে হবে।");
+                return;
+            }
+            showLoading(true);
+            try {
+                const token = await auth.currentUser.getIdToken();
+                const response = await fetch('/api/setupPin', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ newPin })
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.message);
+                showMessage(result.message);
+                renderPinSetupOptions(); // সফল হলে আগের পেজে ফিরে যাবে
+            } catch (error) {
+                showMessage(error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function handleChangePin(event) {
+            event.preventDefault();
+            const oldPin = document.getElementById('old-pin-input').value;
+            const newPin = document.getElementById('new-pin-input').value;
+            if (oldPin.length !== 4 || newPin.length !== 4) {
+                showMessage("পুরাতন এবং নতুন পিন অবশ্যই ৪ সংখ্যার হতে হবে।");
+                return;
+            }
+            showLoading(true);
+            try {
+                const token = await auth.currentUser.getIdToken();
+                const response = await fetch('/api/changePin', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ oldPin, newPin })
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.message);
+                showMessage(result.message);
+                renderPinSetupOptions(); // সফল হলে আগের পেজে ফিরে যাবে
+            } catch (error) {
+                showMessage(error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+        // ****** পিন সেটআপ ফাংশন শেষ ******
+
 
         // [SECURE] Render the main dashboard
         function renderDashboard(profileData) {
@@ -1386,13 +1510,13 @@
                 const userDocSnap = await getDoc(userDocRef);
 
                 if (!userDocSnap.exists()) {
+                    // ****** পরিবর্তন: pinHash: 0 সরানো হয়েছে ******
                     await setDoc(userDocRef, {
                         name: user.displayName || 'New User',
                         email: user.email,
                         balance: 0.00,
                         mobile: '',
                         dob: '',
-                        pinHash: 0,
                         isAdmin: false
                     });
                      showMessage("স্বাগতম! আপনার প্রোফাইল তৈরি হয়েছে।");
@@ -1434,13 +1558,13 @@
                 await updateProfile(user, { displayName: name });
 
                 const docRef = doc(db, `artifacts/${appId}/users/${user.uid}`);
+                // ****** পরিবর্তন: pinHash: 0 সরানো হয়েছে ******
                 await setDoc(docRef, { 
                     name: name,
                     email: email,
                     balance: 0.00,
                     mobile: '',
                     dob: '',
-                    pinHash: 0,
                     isAdmin: false
                 });
                 
@@ -1494,7 +1618,7 @@
             const pin = document.getElementById('pin').value;
 
             if (!pin || pin.length !== 4) {
-                showMessage("পিন ৪-সংখ্যার হতে হবে।");
+                showMessage("আপনার বর্তমান পিন ৪-সংখ্যার হতে হবে।");
                 return;
             }
 
@@ -2111,6 +2235,12 @@
                 renderAdminDashboard();
                 menuSidebar.classList.remove('open');
             }
+        });
+        
+        // ****** নতুন পিন সেটআপ মেনু বাটনের জন্য Event Listener ******
+        pinSetupMenuBtn.addEventListener('click', () => {
+            renderPinSetupOptions();
+            menuSidebar.classList.remove('open'); // মেনু বন্ধ করুন
         });
 
         if (homeBtn) {
