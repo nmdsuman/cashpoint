@@ -369,7 +369,7 @@
             });
             document.getElementById('toggle-auth-view').addEventListener('click', () => {
                 const newAuthMode = authMode === 'login' ? 'signup' : 'login';
-                renderLandingPage('email', newAuthMode);
+                navigateTo(newAuthMode === 'signup' ? '/signup' : '/login');
             });
             document.getElementById('forgot-password-btn').addEventListener('click', renderForgotPasswordForm);
         }
@@ -388,7 +388,7 @@
                 </div>
             `;
             document.getElementById('send-reset-email-btn').addEventListener('click', handleForgotPassword);
-            document.getElementById('back-to-login-btn').addEventListener('click', () => renderLandingPage('email', 'login'));
+            document.getElementById('back-to-login-btn').addEventListener('click', () => navigateTo('/login'));
         }
 
         // Handle forgot password logic
@@ -483,7 +483,7 @@
                 </div>
             `;
             document.getElementById('setup-pin-form').addEventListener('submit', handleSetupPin);
-            document.getElementById('back-to-pin-options-btn').addEventListener('click', renderPinSetupOptions);
+            document.getElementById('back-to-pin-options-btn').addEventListener('click', () => navigateTo('/pin-setup'));
         }
 
         // পিন পরিবর্তন করার ফর্ম
@@ -500,7 +500,7 @@
                 </div>
             `;
             document.getElementById('change-pin-form').addEventListener('submit', handleChangePin);
-            document.getElementById('back-to-pin-options-btn').addEventListener('click', renderPinSetupOptions);
+            document.getElementById('back-to-pin-options-btn').addEventListener('click', () => navigateTo('/pin-setup'));
         }
 
         // API কল করার জন্য হ্যান্ডলার ফাংশন
@@ -522,7 +522,7 @@
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.message);
                 showMessage(result.message);
-                renderPinSetupOptions(); // সফল হলে আগের পেজে ফিরে যাবে
+                navigateTo('/pin-setup'); 
             } catch (error) {
                 showMessage(error.message);
             } finally {
@@ -549,7 +549,7 @@
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.message);
                 showMessage(result.message);
-                renderPinSetupOptions(); // সফল হলে আগের পেজে ফিরে যাবে
+                navigateTo('/pin-setup');
             } catch (error) {
                 showMessage(error.message);
             } finally {
@@ -639,12 +639,12 @@
             gridDiv.className = 'grid grid-cols-3 gap-4 text-center text-gray-600';
 
             const actions = [
-                { id: 'send-money-btn-container', icon: 'fa-paper-plane', label: 'সেন্ড মানি', handler: renderSendMoneyFormStep1 },
-                { id: 'transfer-money-btn-container', icon: 'fa-exchange-alt', label: 'টাকা ট্রান্সফার', handler: showTransferOptions },
+                { id: 'send-money-btn-container', icon: 'fa-paper-plane', label: 'সেন্ড মানি', handler: () => navigateTo('/send-money') },
+                { id: 'transfer-money-btn-container', icon: 'fa-exchange-alt', label: 'টাকা ট্রান্সফার', handler: () => navigateTo('/transfer-money') },
                 { id: null, icon: 'fa-mobile-alt', label: 'মোবাইল রিচার্জ', handler: null },
                 { id: null, icon: 'fa-hand-holding-usd', label: 'ক্যাশ আউট', handler: null },
                 { id: null, icon: 'fa-credit-card', label: 'পেমেন্ট', handler: null },
-                { id: 'add-money-btn-container', icon: 'fa-plus-circle', label: 'অ্যাড মানি', handler: showAddMoneyOptions }
+                { id: 'add-money-btn-container', icon: 'fa-plus-circle', label: 'অ্যাড মানي', handler: () => navigateTo('/add-money') }
             ];
 
             actions.forEach(action => {
@@ -930,7 +930,7 @@
                 </div>
             `;
             document.getElementById('transfer-form').addEventListener('submit', handleMoneyTransfer);
-            document.getElementById('back-to-transfer-options-btn').addEventListener('click', showTransferOptions);
+            document.getElementById('back-to-transfer-options-btn').addEventListener('click', () => navigateTo('/transfer-money'));
         }
 
         // Show transfer confirmation screen (SAFE - Data is app-generated or escaped)
@@ -1013,7 +1013,6 @@
             showMoneyTransferConfirmation(recipientNumber, amount, method);
         }
 
-        // ########## পরিবর্তিত ফাংশন ##########
         async function handleFinalMoneyTransfer(recipientNumber, amount, method, pin) {
             if (pin.length !== 4) {
                 showMessage("দয়া করে ৪-সংখ্যার সঠিক পিন দিন।");
@@ -1059,7 +1058,6 @@
                 showLoading(false);
             }
         }
-        // ####################################
 
         // Render Add Money options (SAFE - No user-generated content)
         function showAddMoneyOptions() {
@@ -1106,10 +1104,9 @@
                 </div>
             `;
             document.getElementById('add-money-form').addEventListener('submit', handleAddMoneyRequest);
-            document.getElementById('back-to-options-btn').addEventListener('click', showAddMoneyOptions);
+            document.getElementById('back-to-options-btn').addEventListener('click', () => navigateTo('/add-money'));
         }
 
-        // ########## পরিবর্তিত ফাংশন ##########
         async function handleAddMoneyRequest(event) {
             event.preventDefault();
             const amount = parseFloat(document.getElementById('amount-input').value);
@@ -1164,7 +1161,6 @@
                 showLoading(false);
             }
         }
-        // ####################################
         
         // Step 1: Render the form to enter recipient's info (SAFE - No user-generated content)
         function renderSendMoneyFormStep1() {
@@ -2043,7 +2039,6 @@
         // --- রাউটিং এর জন্য নতুন কোড শুরু ---
 
         const navigateTo = (path) => {
-            // বর্তমান path থেকে নতুন path ভিন্ন হলেই শুধুমাত্র pushState এবং router কল করুন
             if (window.location.pathname !== path) {
                 history.pushState(null, null, path);
                 router();
@@ -2054,17 +2049,15 @@
             const path = window.location.pathname;
             const user = auth.currentUser;
 
-            // যদি ব্যবহারকারী লগইন না করে থাকেন এবং তিনি লগইন পেজে না থাকেন, তাকে লগইন পেজে পাঠান
-            if (!user && path !== '/login' && path !== '/signup') {
+            if (!user && !['/login', '/signup'].includes(path)) {
                 history.replaceState(null, null, '/login');
                 renderLandingPage('email', 'login');
                 return;
             }
             
-            // যদি ব্যবহারকারী লগইন করা থাকেন এবং লগইন বা সাইনআপ পেজে যেতে চান, তাকে হোম পেজে পাঠান
-            if (user && (path === '/login' || path === '/signup')) {
+            if (user && ['/login', '/signup'].includes(path)) {
                  history.replaceState(null, null, '/');
-                 router(); // রাউটারকে আবার কল করুন হোমপেজ রেন্ডার করার জন্য
+                 router();
                  return;
             }
 
@@ -2076,11 +2069,8 @@
                     renderLandingPage('email', 'signup');
                     break;
                 case '/admin':
-                    if (isAdmin) {
-                        renderAdminDashboard();
-                    } else if(user) { // শুধু লগইন করা থাকলেই redirect করুন
-                        navigateTo('/'); 
-                    }
+                    if (isAdmin) renderAdminDashboard();
+                    else if(user) navigateTo('/'); 
                     break;
                 case '/update-profile':
                     if (user) {
@@ -2097,14 +2087,16 @@
                     if(user) {
                         const txCollectionRef = collection(db, `artifacts/${appId}/users/${user.uid}/transactions`);
                         const q = query(txCollectionRef);
-                        const querySnapshot = await getDocs(q); // Use getDocs for one-time fetch
+                        const querySnapshot = await getDocs(q);
                         const transactions = [];
                         querySnapshot.forEach(doc => transactions.push({ id: doc.id, ...doc.data() }));
-                        transactions.sort((a, b) => (b.timestamp || { toDate: () => 0 }).toDate() - (a.timestamp || { toDate: () => 0 }).toDate());
+                        transactions.sort((a, b) => (b.timestamp?.toDate() || 0) - (a.timestamp?.toDate() || 0));
                         renderStatementPage(transactions);
                     }
                     break;
-                default: // '/' বা অন্য কোনো অচেনা রুটের জন্য
+                case '/dashboard':
+                case '/':
+                default: 
                     if(user) {
                         const userDocRef = doc(db, `artifacts/${appId}/users/${user.uid}`);
                         const docSnap = await getDoc(userDocRef);
@@ -2113,6 +2105,16 @@
                     } else {
                          renderLandingPage();
                     }
+                    break;
+                // নতুন রুট যোগ করা হয়েছে
+                case '/add-money':
+                    if(user) showAddMoneyOptions();
+                    break;
+                case '/transfer-money':
+                    if(user) showTransferOptions();
+                    break;
+                case '/send-money':
+                    if(user) renderSendMoneyFormStep1();
                     break;
             }
         };
@@ -2136,10 +2138,8 @@
                             updateDoc(profileDocRef, { isAdmin: false });
                             return;
                         }
-
                         isAdmin = profileData.isAdmin;
                         adminSettingsMenuBtn.classList.toggle('hidden', !isAdmin);
-                        
                         renderSidebar(profileData);
                         router();
 
