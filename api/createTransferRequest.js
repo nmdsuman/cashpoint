@@ -100,18 +100,8 @@ export default async function handler(req, res) {
                 transaction.update(configDocRef, { [`reserve.${method}`]: admin.firestore.FieldValue.increment(-reserveUsed) });
             }
 
-            const transferRequestRef = db.collection(`artifacts/${process.env.APP_ID}/money_transfer_requests`).doc();
-            transaction.set(transferRequestRef, {
-                userId: uid,
-                amount: amount,
-                recipientNumber: recipientNumber,
-                method: method,
-                status: 'pending',
-                timestamp: admin.firestore.FieldValue.serverTimestamp(),
-                charge: totalCharge,
-                reserveUsed: reserveUsed
-            });
-            
+            // ❗️❗️ কোড আপডেট করা হয়েছে ❗️❗️
+            // প্রথমে ব্যবহারকারীর জন্য ট্রানজেকশন তৈরি করা হচ্ছে
             const userTransactionId = generateTransactionId();
             const userTransactionRef = userDocRef.collection("transactions").doc();
             transaction.set(userTransactionRef, {
@@ -122,6 +112,20 @@ export default async function handler(req, res) {
                 status: 'pending',
                 timestamp: admin.firestore.FieldValue.serverTimestamp(),
                 transactionId: userTransactionId
+            });
+            
+            // এখন অ্যাডমিনের জন্য রিকোয়েস্ট তৈরি করা হচ্ছে এবং আগের ট্রানজেকশনের আইডি সংরক্ষণ করা হচ্ছে
+            const transferRequestRef = db.collection(`artifacts/${process.env.APP_ID}/money_transfer_requests`).doc();
+            transaction.set(transferRequestRef, {
+                userId: uid,
+                amount: amount,
+                recipientNumber: recipientNumber,
+                method: method,
+                status: 'pending',
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                charge: totalCharge,
+                reserveUsed: reserveUsed,
+                userTransactionRefId: userTransactionRef.id // <-- সবচেয়ে গুরুত্বপূর্ণ পরিবর্তন
             });
         });
 
