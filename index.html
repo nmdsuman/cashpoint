@@ -197,7 +197,8 @@
         import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, signInWithCustomToken, signInAnonymously, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, updateProfile } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot, runTransaction, collection, query, where, getDocs, getDoc, addDoc, serverTimestamp, deleteDoc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Global variables provided by the environment
+        // ****** নতুনভাবে সেট করা কনফিগারেশন ******
+        // আপনার দেওয়া Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyCb9v4Q8XsaBKpnopMHE_5_aXEEMkEQork",
             authDomain: "cashpoint-f8b51.firebaseapp.com",
@@ -207,7 +208,11 @@
             appId: "1:50891144664:web:e90f63977c95c86c04c6ad",
             measurementId: "G-WJXSMFBEE6"
         };
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        
+        // Firestore path-এর জন্য ব্যবহৃত আইডি (আপনার প্রোজেক্ট আইডি)
+        // এটি এখন হার্ডকোড করা হয়েছে যাতে আর ভুল না হয়।
+        const appId = "cashpoint-f8b51";
+        
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
         
         // Initialize Firebase
