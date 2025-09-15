@@ -3,10 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CashPoint - মোবাইল ব্যাংকিং & Gaming</title>
+    <title>CashPoint - মোবাইল ব্যাংকিং</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Your existing CashPoint styles here */
         body {
             font-family: sans-serif;
             background-color: #f0f2f5;
@@ -20,19 +19,6 @@
         .gradient-bg {
             background: linear-gradient(135deg, #FF69B4, #E2136E);
         }
-        
-        /* Tournament specific styles */
-        .tournament-bg {
-            background: linear-gradient(135deg, #4F46E5, #7C3AED);
-        }
-        .text-tournament-purple {
-            color: #4F46E5;
-        }
-        .bg-tournament-purple {
-            background-color: #4F46E5;
-        }
-        
-        /* Common styles */
         .sidebar {
             transform: translateX(100%);
             transition: transform 0.3s ease-in-out;
@@ -40,524 +26,295 @@
         .sidebar.open {
             transform: translateX(0);
         }
-        
-        /* Mode switch toggle */
-        .mode-switch {
+        .balance-container {
             position: relative;
-            display: inline-block;
-            width: 60px;
-            height: 30px;
         }
-        .mode-switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-        .mode-slider {
+        .balance-overlay {
             position: absolute;
-            cursor: pointer;
             top: 0;
             left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: #E2136E;
-            transition: .4s;
-            border-radius: 34px;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0s 0.3s;
         }
-        .mode-slider:before {
-            position: absolute;
-            content: "";
-            height: 22px;
-            width: 22px;
-            left: 4px;
-            bottom: 4px;
-            background-color: white;
-            transition: .4s;
-            border-radius: 50%;
-        }
-        input:checked + .mode-slider {
-            background-color: #4F46E5;
-        }
-        input:checked + .mode-slider:before {
-            transform: translateX(30px);
-        }
-        
-        /* Hide scrollbar for all relevant areas */
-        #main-content::-webkit-scrollbar,
-        #transaction-list::-webkit-scrollbar,
-        #admin-content-area::-webkit-scrollbar,
-        #menu-sidebar ul::-webkit-scrollbar {
-            display: none;
-        }
-        #main-content,
-        #transaction-list,
-        #admin-content-area,
-        #menu-sidebar ul {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
+        .balance-overlay.show {
+            opacity: 1;
+            visibility: visible;
+            transition: opacity 0.3s ease;
         }
     </style>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
 </head>
-<body class="bg-gray-100 flex flex-col items-center justify-center min-h-screen">
+<body class="bg-gray-100 antialiased">
 
-    <div id="app-container" class="relative w-full max-w-sm bg-white shadow-xl rounded-2xl overflow-hidden h-[95vh] max-h-[850px] flex flex-col">
-        <div id="message-box" class="absolute top-4 left-1/2 -translate-x-1/2 z-50 p-3 rounded-lg text-sm transition-all duration-300 transform scale-0" style="background-color: #1a1a1a; color: white;"></div>
-
-        <header id="header" class="w-full gradient-bg text-white py-4 px-6 flex items-center justify-between shadow-md flex-shrink-0">
-            <h1 class="text-2xl font-bold">CashPoint</h1>
-            <div class="flex items-center space-x-3">
-                <!-- Mode Switch Toggle -->
-                <div id="mode-switch-container" class="hidden flex items-center space-x-2">
-                    <span class="text-xs">ব্যাংকিং</span>
-                    <label class="mode-switch">
-                        <input type="checkbox" id="mode-toggle">
-                        <span class="mode-slider"></span>
-                    </label>
-                    <span class="text-xs">গেমিং</span>
-                </div>
-                
-                <div id="user-info-header" class="flex items-center space-x-2">
-                    <span id="header-user-name" class="font-medium text-sm"></span>
-                </div>
-            </div>
+    <div id="app" class="flex flex-col h-screen max-w-sm mx-auto bg-white shadow-lg overflow-hidden">
+        
+        <header class="gradient-bg text-white p-4 flex items-center justify-between">
+            <h1 id="page-title" class="text-xl font-bold"></h1>
+            <button id="menu-btn" class="text-white focus:outline-none">
+                <i class="fas fa-bars text-xl"></i>
+            </button>
         </header>
 
-        <main id="main-content" class="flex-grow flex flex-col p-4 overflow-y-auto">
-        </main>
+        <main id="app-content" class="flex-grow overflow-y-auto p-4 relative"></main>
 
-        <!-- Your existing sidebar code remains the same -->
-        <aside id="menu-sidebar" class="fixed top-0 right-0 h-full w-3/4 bg-white shadow-lg z-50 sidebar flex flex-col">
-            <!-- ... existing sidebar content ... -->
+        <nav id="nav-bar" class="bg-white border-t border-gray-200 shadow-md p-2 flex justify-around items-center">
+            <button id="home-btn" class="flex flex-col items-center text-cashpoint-pink font-medium">
+                <i class="fas fa-home text-lg"></i>
+                <span class="text-xs mt-1">হোম</span>
+            </button>
+            </nav>
+
+        <aside id="menu-sidebar" class="sidebar fixed top-0 right-0 h-full w-64 bg-white shadow-xl z-50 p-6 flex flex-col">
+            <div class="flex justify-between items-center mb-6">
+                <span class="text-lg font-bold">মেনু</span>
+                <button id="close-menu-btn" class="text-gray-500 hover:text-gray-700 focus:outline-none">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <ul class="space-y-4">
+                <li id="home-btn-menu" class="p-3 flex items-center space-x-4 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors">
+                    <i class="fas fa-home text-xl text-cashpoint-pink"></i>
+                    <span class="text-gray-700 font-medium">হোম</span>
+                </li>
+                <li id="statement-btn-menu" class="p-3 flex items-center space-x-4 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors">
+                    <i class="fas fa-file-invoice text-xl text-cashpoint-pink"></i>
+                    <span class="text-gray-700 font-medium">স্টেটমেন্ট</span>
+                </li>
+                <li id="tournament-btn-menu" class="p-3 flex items-center space-x-4 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors">
+                    <i class="fas fa-gamepad text-xl text-cashpoint-pink"></i>
+                    <span class="text-gray-700 font-medium">টুর্নামেন্ট</span>
+                </li>
+                <li id="pin-setup-menu-btn" class="p-3 flex items-center space-x-4 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors">
+                    <i class="fas fa-key text-xl text-cashpoint-pink"></i>
+                    <span class="text-gray-700 font-medium">পিন সেটআপ</span>
+                </li>
+                <li id="update-info-btn" class="p-3 flex items-center space-x-4 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors">
+                    <i class="fas fa-user-edit text-xl text-cashpoint-pink"></i>
+                    <span class="text-gray-700 font-medium">প্রোফাইল আপডেট</span>
+                </li>
+                <li id="admin-settings-menu-btn" class="p-3 flex items-center space-x-4 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors hidden">
+                    <i class="fas fa-cog text-xl text-cashpoint-pink"></i>
+                    <span class="text-gray-700 font-medium">অ্যাডমিন প্যানেল</span>
+                </li>
+            </ul>
+            <div class="mt-auto pt-4 border-t border-gray-200">
+                <button id="logout-btn" class="w-full text-left p-3 flex items-center space-x-4 rounded-xl cursor-pointer text-red-500 hover:bg-red-50 transition-colors">
+                    <i class="fas fa-sign-out-alt text-xl"></i>
+                    <span class="font-medium">লগআউট</span>
+                </button>
+            </div>
         </aside>
 
-        <footer id="bottom-nav" class="w-full bg-white shadow-t-xl rounded-t-2xl py-3 px-4 flex justify-around items-center border-t border-gray-200 flex-shrink-0 hidden">
-            <!-- ... existing footer content ... -->
-        </footer>
-
-        <!-- Your existing modal and loading overlay code remains the same -->
-        <div id="transaction-details-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
-            <!-- ... modal content ... -->
-        </div>
-        
-        <div id="loading-overlay" class="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-40 hidden">
-            <div class="animate-spin rounded-full h-12 w-12 border-4 border-cashpoint-pink border-t-transparent"></div>
-        </div>
     </div>
 
     <script type="module">
-        // Firebase imports and initialization (same as your existing code)
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, signInWithCustomToken, signInAnonymously, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, updateProfile } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot, runTransaction, collection, query, where, getDocs, getDoc, addDoc, serverTimestamp, deleteDoc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import { getFirestore, doc, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-        // Firebase configuration (your existing config)
+        // Firebase Config and App Initialization
         const firebaseConfig = {
-            apiKey: "AIzaSyCb9v4Q8XsaBKpnopMHE_5_aXEEMkEQork",
-            authDomain: "cashpoint-f8b51.firebaseapp.com",
-            projectId: "cashpoint-f8b51",
-            storageBucket: "cashpoint-f8b51.firebasestorage.app",
-            messagingSenderId: "50891144664",
-            appId: "1:50891144664:web:e90f63977c95c86c04c6ad",
-            measurementId: "G-WJXSMFBEE6"
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_AUTH_DOMAIN",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_STORAGE_BUCKET",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID"
         };
-        
-        const appId = "cashpoint-f8b51";
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-        
-        // Initialize Firebase
+
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const provider = new GoogleAuthProvider();
 
         // Global variables
-        let currentUser = null;
-        let unsubscribeFromProfile = null;
-        let unsubscribeFromRequests = null;
-        let unsubscribeFromTransfers = null;
-        let recipientData = {};
-        let isAdmin = false;
-        let currentMode = 'cashpoint'; // 'cashpoint' or 'tournament'
-        
-        // App configuration
-        let appConfig = {
-            charges: {
-                send: { percentage: 0, fixed: 0 },
-                transfer: { percentage: 0, fixed: 0 }
-            },
-            reserve: {
-                bkash: 0,
-                nagad: 0
-            },
-            paymentNumbers: {
-                bkash: '',
-                nagad: ''
-            }
-        };
-
-        // UI Elements
-        const mainContent = document.getElementById('main-content');
-        const headerUserName = document.getElementById('header-user-name');
-        const logoutBtn = document.getElementById('logout-btn');
-        const loadingOverlay = document.getElementById('loading-overlay');
-        const messageBox = document.getElementById('message-box');
+        const appId = firebaseConfig.appId;
+        const pageTitle = document.getElementById('page-title');
+        const appContent = document.getElementById('app-content');
         const menuSidebar = document.getElementById('menu-sidebar');
         const menuBtn = document.getElementById('menu-btn');
-        const appContainer = document.getElementById('app-container');
-        const sidebarUserName = document.getElementById('sidebar-user-name');
-        const sidebarUserMobile = document.getElementById('sidebar-user-mobile');
-        const sidebarInitial = document.getElementById('sidebar-initial');
-        const updateInfoBtn = document.getElementById('update-info-btn');
+        const closeMenuBtn = document.getElementById('close-menu-btn');
+        const logoutBtn = document.getElementById('logout-btn');
         const homeBtn = document.getElementById('home-btn');
         const homeBtnMenu = document.getElementById('home-btn-menu');
         const statementBtnMenu = document.getElementById('statement-btn-menu');
-        const adminSettingsMenuBtn = document.getElementById('admin-settings-menu-btn');
-        const bottomNav = document.getElementById('bottom-nav');
         const pinSetupMenuBtn = document.getElementById('pin-setup-menu-btn');
-        const modeSwitchContainer = document.getElementById('mode-switch-container');
-        const modeToggle = document.getElementById('mode-toggle');
+        const updateInfoBtn = document.getElementById('update-info-btn');
+        const adminSettingsMenuBtn = document.getElementById('admin-settings-menu-btn');
+        
+        // নতুন টুর্নামেন্ট মেনু বাটন
+        const tournamentBtnMenu = document.getElementById('tournament-btn-menu');
 
-        // Mode switching functionality
-        function toggleMode() {
-            currentMode = modeToggle.checked ? 'tournament' : 'cashpoint';
-            updateUIForMode();
-            router();
-        }
+        let userProfile = null;
+        let isAdmin = false;
 
-        function updateUIForMode() {
-            const header = document.getElementById('header');
-            const headerTitle = document.querySelector('#header h1');
-            
-            if (currentMode === 'tournament') {
-                header.classList.remove('gradient-bg');
-                header.classList.add('tournament-bg');
-                headerTitle.textContent = 'Tournament';
-            } else {
-                header.classList.remove('tournament-bg');
-                header.classList.add('gradient-bg');
-                headerTitle.textContent = 'CashPoint';
-            }
-            
-            // Show mode switch only when user is logged in
-            modeSwitchContainer.classList.toggle('hidden', !currentUser);
-        }
+        // Routing Functions
+        const pages = {
+            '/': 'home.html',
+            '/statement': 'statement.html',
+            '/add-money': 'addMoney.html',
+            '/send-money': 'sendMoney.html',
+            '/pin-setup': 'pinSetup.html',
+            '/update-profile': 'updateProfile.html',
+            '/admin': 'admin.html',
+        };
 
-        // Tournament-specific functions
-        function renderTournamentDashboard() {
-            mainContent.innerHTML = `
-                <div class="flex flex-col h-full p-4 space-y-6">
-                    <h2 class="text-2xl font-bold text-tournament-purple mb-4">গেমিং প্ল্যাটফর্ম</h2>
-                    
-                    <div class="bg-white rounded-xl p-4 shadow-md flex items-center justify-between">
-                        <div class="flex-grow">
-                            <p class="text-sm text-gray-500">গেমিং ব্যালেন্স</p>
-                            <span id="gaming-balance" class="text-2xl font-bold text-gray-800">৳ 0.00</span>
-                        </div>
-                        <button class="bg-tournament-purple text-white text-sm font-semibold px-4 py-2 rounded-full shadow-lg transition-transform transform hover:scale-105" onclick="navigateTo('/tournament/add-funds')">
-                            ফান্ড যোগ করুন
-                        </button>
-                    </div>
-                    
-                    <div class="grid grid-cols-2 gap-4 text-center text-gray-600">
-                        <div class="flex flex-col items-center p-3 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer" onclick="navigateTo('/tournament/active')">
-                            <i class="fas fa-gamepad text-2xl text-tournament-purple mb-2"></i>
-                            <span class="text-xs font-medium">সক্রিয় টুর্নামেন্ট</span>
-                        </div>
-                        <div class="flex flex-col items-center p-3 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer" onclick="navigateTo('/tournament/history')">
-                            <i class="fas fa-history text-2xl text-tournament-purple mb-2"></i>
-                            <span class="text-xs font-medium">ইতিহাস</span>
-                        </div>
-                        <div class="flex flex-col items-center p-3 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer" onclick="navigateTo('/tournament/leaderboard')">
-                            <i class="fas fa-trophy text-2xl text-tournament-purple mb-2"></i>
-                            <span class="text-xs font-medium">লিডারবোর্ড</span>
-                        </div>
-                        <div class="flex flex-col items-center p-3 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer" onclick="navigateTo('/tournament/rules')">
-                            <i class="fas fa-info-circle text-2xl text-tournament-purple mb-2"></i>
-                            <span class="text-xs font-medium">নিয়মাবলী</span>
-                        </div>
-                    </div>
-                    
-                    <div class="mt-6">
-                        <h3 class="text-xl font-bold text-gray-800 mb-4">বর্তমান টুর্নামেন্ট</h3>
-                        <div id="tournament-list" class="space-y-4">
-                            <p class="text-center text-gray-500 py-10">লোড হচ্ছে...</p>
-                        </div>
-                    </div>
-                </div>
-            `;
-            
-            loadTournaments();
-        }
-
-        async function loadTournaments() {
-            showLoading(true);
-            try {
-                // Load tournaments from Firestore
-                const tournamentsRef = collection(db, `artifacts/${appId}/tournaments`);
-                const q = query(tournamentsRef, where("status", "==", "active"));
-                const querySnapshot = await getDocs(q);
-                
-                const tournamentList = document.getElementById('tournament-list');
-                tournamentList.innerHTML = '';
-                
-                if (querySnapshot.empty) {
-                    tournamentList.innerHTML = '<p class="text-center text-gray-500 py-10">কোনো সক্রিয় টুর্নামেন্ট নেই</p>';
-                    return;
-                }
-                
-                querySnapshot.forEach((doc) => {
-                    const tournament = doc.data();
-                    const tournamentElement = createTournamentElement(tournament, doc.id);
-                    tournamentList.appendChild(tournamentElement);
-                });
-            } catch (error) {
-                console.error("Error loading tournaments:", error);
-                showMessage("টুর্নামেন্ট লোড করতে সমস্যা হয়েছে");
-            } finally {
-                showLoading(false);
-            }
-        }
-
-        function createTournamentElement(tournament, id) {
-            const element = document.createElement('div');
-            element.className = 'bg-white rounded-lg p-4 shadow-md';
-            
-            const entryFee = tournament.entryFee || 0;
-            const prizePool = tournament.prizePool || 0;
-            const participants = tournament.participants || 0;
-            const maxParticipants = tournament.maxParticipants || 0;
-            
-            element.innerHTML = `
-                <h4 class="font-bold text-lg text-gray-800">${tournament.name || 'টুর্নামেন্ট'}</h4>
-                <div class="grid grid-cols-2 gap-2 my-3 text-sm">
-                    <div><span class="text-gray-500">এন্ট্রি ফি:</span> ৳${entryFee.toFixed(2)}</div>
-                    <div><span class="text-gray-500">পুরস্কার:</span> ৳${prizePool.toFixed(2)}</div>
-                    <div><span class="text-gray-500">খেলোয়াড়:</span> ${participants}/${maxParticipants}</div>
-                    <div><span class="text-gray-500">স্ট্যাটাস:</span> <span class="text-green-600">সক্রিয়</span></div>
-                </div>
-                <button class="w-full bg-tournament-purple text-white py-2 rounded-lg font-semibold hover:bg-purple-700 transition join-tournament" data-id="${id}" data-fee="${entryFee}">
-                    যোগদান করুন
-                </button>
-            `;
-            
-            element.querySelector('.join-tournament').addEventListener('click', function() {
-                joinTournament(this.dataset.id, parseFloat(this.dataset.fee));
-            });
-            
-            return element;
-        }
-
-        async function joinTournament(tournamentId, entryFee) {
-            if (!currentUser) {
-                showMessage("টুর্নামেন্টে যোগদান করতে লগইন করুন");
-                return;
-            }
-            
-            // Check user balance
-            const userRef = doc(db, `artifacts/${appId}/users/${currentUser.uid}`);
-            const userDoc = await getDoc(userRef);
-            
-            if (!userDoc.exists()) {
-                showMessage("ব্যবহারকারীর তথ্য পাওয়া যায়নি");
-                return;
-            }
-            
-            const userData = userDoc.data();
-            if (userData.balance < entryFee) {
-                showMessage("পর্যাপ্ত ব্যালেন্স নেই");
-                navigateTo('/add-money');
-                return;
-            }
-            
-            showLoading(true);
-            try {
-                // Deduct entry fee and register user for tournament
-                await runTransaction(db, async (transaction) => {
-                    // Update user balance
-                    transaction.update(userRef, {
-                        balance: increment(-entryFee)
-                    });
-                    
-                    // Add user to tournament participants
-                    const participantRef = doc(db, `artifacts/${appId}/tournaments/${tournamentId}/participants`, currentUser.uid);
-                    transaction.set(participantRef, {
-                        userId: currentUser.uid,
-                        userName: userData.name,
-                        joinedAt: serverTimestamp()
-                    });
-                    
-                    // Update tournament participant count
-                    const tournamentRef = doc(db, `artifacts/${appId}/tournaments`, tournamentId);
-                    transaction.update(tournamentRef, {
-                        participants: increment(1)
-                    });
-                });
-                
-                showMessage("সফলভাবে টুর্নামেন্টে যোগদান করেছেন!");
-                loadTournaments();
-            } catch (error) {
-                console.error("Error joining tournament:", error);
-                showMessage("টুর্নামেন্টে যোগদান করতে ব্যর্থ");
-            } finally {
-                showLoading(false);
-            }
-        }
-
-        function renderTournamentAddFunds() {
-            mainContent.innerHTML = `
-                <div class="flex flex-col h-full p-4 space-y-6">
-                    <h2 class="text-2xl font-bold text-tournament-purple mb-4">গেমিং একাউন্টে ফান্ড যোগ করুন</h2>
-                    
-                    <div class="bg-gray-100 p-4 rounded-xl">
-                        <p class="text-sm text-gray-600 mb-2">নিচের বিকাশ/নগদ নম্বরে টাকা পাঠান:</p>
-                        <div class="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200">
-                            <span class="font-mono text-lg font-bold">01XXXXXXXXX</span>
-                            <i class="fas fa-copy text-tournament-purple cursor-pointer" onclick="copyToClipboard('01XXXXXXXXX')"></i>
-                        </div>
-                    </div>
-                    
-                    <form id="add-gaming-funds-form" class="w-full space-y-4">
-                        <input type="number" id="amount-input" placeholder="টাকার পরিমাণ" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-tournament-purple">
-                        <input type="text" id="txid-input" placeholder="ট্রানজেকশন আইডি" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-tournament-purple">
-                        <input type="tel" id="sender-number-input" placeholder="আপনার মোবাইল নম্বর" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-tournament-purple">
-                        <button type="submit" class="w-full py-3 bg-tournament-purple text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105">
-                            রিকোয়েস্ট জমা দিন
-                        </button>
-                    </form>
-                    
-                    <button onclick="navigateTo('/tournament')" class="w-full py-3 bg-gray-400 text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105">
-                        ফিরে যান
-                    </button>
-                </div>
-            `;
-            
-            document.getElementById('add-gaming-funds-form').addEventListener('submit', handleAddGamingFunds);
-        }
-
-        async function handleAddGamingFunds(event) {
-            event.preventDefault();
-            const amount = parseFloat(document.getElementById('amount-input').value);
-            const txId = document.getElementById('txid-input').value.trim();
-            const senderNumber = document.getElementById('sender-number-input').value.trim();
-
-            if (isNaN(amount) || amount <= 0 || !txId || !senderNumber) {
-                showMessage("দয়া করে সব তথ্য সঠিকভাবে পূরণ করুন");
-                return;
-            }
-
-            showLoading(true);
-            try {
-                // Create gaming fund request
-                const requestRef = collection(db, `artifacts/${appId}/gaming_fund_requests`);
-                await addDoc(requestRef, {
-                    userId: currentUser.uid,
-                    amount: amount,
-                    txId: txId,
-                    senderNumber: senderNumber,
-                    status: 'pending',
-                    timestamp: serverTimestamp()
-                });
-                
-                showMessage("আপনার ফান্ড রিকোয়েস্ট সফলভাবে জমা হয়েছে");
-                navigateTo('/tournament');
-            } catch (error) {
-                console.error("Error adding gaming funds:", error);
-                showMessage("ফান্ড রিকোয়েস্ট জমা দিতে ব্যর্থ হয়েছে");
-            } finally {
-                showLoading(false);
-            }
-        }
-
-        // Modified router to handle both CashPoint and Tournament routes
         const navigateTo = (path) => {
-            if (window.location.pathname !== path) {
-                history.pushState(null, null, path);
-                router();
-            }
+            history.pushState(null, '', path);
+            loadPageContent(path);
         };
 
-        const router = async () => {
-            const path = window.location.pathname;
-            const user = auth.currentUser;
-
-            if (!user && !['/login', '/signup'].includes(path)) {
-                history.replaceState(null, null, '/login');
-                renderLandingPage('email', 'login');
-                return;
-            }
-            
-            if (user && ['/login', '/signup'].includes(path)) {
-                 history.replaceState(null, null, '/');
-                 router();
-                 return;
-            }
-
-            // Handle tournament routes
-            if (path.startsWith('/tournament')) {
-                currentMode = 'tournament';
-                modeToggle.checked = true;
-                updateUIForMode();
-                
-                switch (path) {
-                    case '/tournament':
-                        renderTournamentDashboard();
-                        break;
-                    case '/tournament/add-funds':
-                        renderTournamentAddFunds();
-                        break;
-                    case '/tournament/active':
-                        // Implement active tournaments view
-                        renderTournamentDashboard();
-                        break;
-                    case '/tournament/history':
-                        // Implement tournament history
-                        renderTournamentDashboard();
-                        break;
-                    default:
-                        navigateTo('/tournament');
-                }
-                return;
-            }
-            
-            // Handle CashPoint routes (your existing code)
-            switch (path) {
-                case '/login':
-                    renderLandingPage('email', 'login');
-                    break;
-                case '/signup':
-                    renderLandingPage('email', 'signup');
-                    break;
-                // ... your existing CashPoint routes
-                default:
-                    // Your existing CashPoint routing logic
-            }
+        window.onpopstate = () => {
+            loadPageContent(location.pathname);
         };
 
-        // Initialize the app
-        window.onload = async () => {
-            showLoading(true);
-            await listenForConfigUpdates();
-            
-            // Set up mode toggle event listener
-            if (modeToggle) {
-                modeToggle.addEventListener('change', toggleMode);
-            }
-            
+        const loadPageContent = async (path) => {
+            const pageFile = pages[path] || pages['/'];
             try {
-                if (initialAuthToken) await signInWithCustomToken(auth, initialAuthToken);
-                else await signInAnonymously(auth);
+                const response = await fetch(pageFile);
+                const html = await response.text();
+                appContent.innerHTML = html;
+                pageTitle.textContent = getTitleFromPath(path);
+                
+                // If it's the home page, load user data
+                if (path === '/') {
+                    loadUserData();
+                }
+            } catch (error) {
+                console.error("Failed to load page:", error);
+            }
+        };
+
+        const getTitleFromPath = (path) => {
+            switch (path) {
+                case '/': return 'হোম';
+                case '/statement': return 'স্টেটমেন্ট';
+                case '/add-money': return 'অ্যাড মানি';
+                case '/send-money': return 'সেন্ড মানি';
+                case '/pin-setup': return 'পিন সেটআপ';
+                case '/update-profile': return 'প্রোফাইল আপডেট';
+                case '/admin': return 'অ্যাডমিন প্যানেল';
+                default: return 'CashPoint';
+            }
+        };
+
+        // User Data Loading
+        const loadUserData = () => {
+            const userId = auth.currentUser.uid;
+            const userDocRef = doc(db, `artifacts/${appId}/users`, userId);
+            
+            onSnapshot(userDocRef, (doc) => {
+                if (doc.exists()) {
+                    userProfile = doc.data();
+                    isAdmin = userProfile.isAdmin || false;
+                    
+                    const balanceEl = document.getElementById('user-balance');
+                    if (balanceEl) {
+                        balanceEl.textContent = `৳ ${userProfile.balance}`;
+                    }
+                    
+                    const nameEl = document.getElementById('user-name');
+                    if (nameEl) {
+                        nameEl.textContent = userProfile.name;
+                    }
+                    
+                    if (isAdmin) {
+                        adminSettingsMenuBtn.classList.remove('hidden');
+                    } else {
+                        adminSettingsMenuBtn.classList.add('hidden');
+                    }
+                } else {
+                    console.log("No user data found!");
+                }
+            });
+        };
+
+        // Firebase Auth State Observer
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                if (location.pathname === '/login' || location.pathname === '/register') {
+                    navigateTo('/');
+                } else {
+                    loadPageContent(location.pathname);
+                }
+            } else {
+                if (location.pathname !== '/login' && location.pathname !== '/register') {
+                    navigateTo('/login');
+                }
+            }
+        });
+
+        // Event Handlers
+        const handleMenuClick = () => {
+            menuSidebar.classList.add('open');
+        };
+
+        const handleCloseMenu = () => {
+            menuSidebar.classList.remove('open');
+        };
+
+        const handleLogout = async () => {
+            try {
+                await signOut(auth);
             } catch (error) {
                 console.error("Firebase Auth initialization failed:", error);
-            } finally {
-                // onAuthStateChanged will handle the final loading state and routing
             }
         };
 
-        // Your existing functions (showMessage, showLoading, etc.) remain the same
+        logoutBtn.addEventListener('click', async () => {
+            await handleLogout();
+            navigateTo('/login');
+        });
+        
+        menuBtn.addEventListener('click', handleMenuClick);
+        closeMenuBtn.addEventListener('click', handleCloseMenu);
+        
+        updateInfoBtn.addEventListener('click', () => {
+            navigateTo('/update-profile');
+            menuSidebar.classList.remove('open');
+        });
+        
+        adminSettingsMenuBtn.addEventListener('click', () => {
+            if (isAdmin) {
+                navigateTo('/admin');
+                menuSidebar.classList.remove('open');
+            }
+        });
+        
+        pinSetupMenuBtn.addEventListener('click', () => {
+            navigateTo('/pin-setup');
+            menuSidebar.classList.remove('open');
+        });
 
-        // ... rest of your existing code with modifications to support both modes
-
+        if (homeBtn) {
+            homeBtn.addEventListener('click', () => navigateTo('/'));
+        }
+        if (homeBtnMenu) {
+            homeBtnMenu.addEventListener('click', () => {
+                navigateTo('/');
+                menuSidebar.classList.remove('open');
+            });
+        }
+        if (statementBtnMenu) {
+            statementBtnMenu.addEventListener('click', () => {
+                navigateTo('/statement');
+                menuSidebar.classList.remove('open');
+            });
+        }
+        // টুর্নামেন্ট বাটন এর ইভেন্ট হ্যান্ডলার
+        if (tournamentBtnMenu) {
+            tournamentBtnMenu.addEventListener('click', () => {
+                window.location.href = '/turnament';
+            });
+        }
     </script>
 </body>
 </html>
