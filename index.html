@@ -6,22 +6,44 @@
     <title>CashPoint - মোবাইল ব্যাংকিং</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { font-family: sans-serif; background-color: #f0f2f5; }
-        .bg-cashpoint-pink { background-color: #E2136E; }
-        .text-cashpoint-pink { color: #E2136E; }
-        .gradient-bg { background: linear-gradient(135deg, #FF69B4, #E2136E); }
-        .sidebar { transform: translateX(100%); transition: transform 0.3s ease-in-out; }
-        .sidebar.open { transform: translateX(0); }
+        body {
+            font-family: sans-serif;
+            background-color: #f0f2f5;
+        }
+        .bg-cashpoint-pink {
+            background-color: #E2136E;
+        }
+        .text-cashpoint-pink {
+            color: #E2136E;
+        }
+        .gradient-bg {
+            background: linear-gradient(135deg, #FF69B4, #E2136E);
+        }
+        .sidebar {
+            transform: translateX(100%);
+            transition: transform 0.3s ease-in-out;
+        }
+        .sidebar.open {
+            transform: translateX(0);
+        }
+        .balance-container { position: relative; }
+        .balance-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(255, 255, 255, 0.9); display: flex; align-items: center; justify-content: center; flex-direction: column; opacity: 0; pointer-events: none; transition: opacity 0.3s ease-in-out; border-radius: 0.75rem; }
         .balance-overlay.visible { opacity: 1; pointer-events: all; }
         .tab-btn.add-money-active { border-color: #E2136E; color: #E2136E; }
         .tab-btn.transfer-money-active { border-color: #3B82F6; color: #3B82F6; }
         .add-money-card { border-left: 4px solid #E2136E; }
         .transfer-money-card { border-left: 4px solid #3B82F6; }
-        /* Scrollbar Hide */
+        
+        /* General Scrollbar Hide */
         .no-scrollbar::-webkit-scrollbar, #main-content::-webkit-scrollbar, #transaction-list::-webkit-scrollbar, #admin-content-area::-webkit-scrollbar, #menu-sidebar ul::-webkit-scrollbar { display: none; }
         .no-scrollbar, #main-content, #transaction-list, #admin-content-area, #menu-sidebar ul { -ms-overflow-style: none; scrollbar-width: none; }
-        /* Tournament Styles */
+        
+        /* Tournament Specific Styles */
         .filter-btn.active { background-color: #E2136E; color: white; font-weight: 600; }
+        .modal { display: none; transition: opacity 0.3s ease; }
+        .modal.show { display: flex; }
+        .modal-content { transition: transform 0.3s ease; transform: translateY(20px) scale(0.95); }
+        .modal.show .modal-content { transform: translateY(0) scale(1); }
     </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
 </head>
@@ -50,26 +72,33 @@
             </div>
             <ul class="flex-grow flex flex-col p-4 space-y-2 overflow-y-auto">
                 <li id="home-btn-menu" class="p-3 flex items-center space-x-4 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors">
-                    <i class="fas fa-home text-xl text-cashpoint-pink"></i><span class="text-gray-700 font-medium">ক্যাশ পয়েন্ট হোম</span>
+                    <i class="fas fa-home text-xl text-cashpoint-pink"></i>
+                    <span class="text-gray-700 font-medium">হোম</span>
                 </li>
                 <li id="switch-to-tournament-menu" class="p-3 flex items-center space-x-4 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors">
-                    <i class="fas fa-gamepad text-xl text-cashpoint-pink"></i><span class="text-gray-700 font-medium">টুর্নামেন্ট</span>
+                    <i class="fas fa-gamepad text-xl text-cashpoint-pink"></i>
+                    <span class="text-gray-700 font-medium">টুর্নামেন্ট</span>
                 </li>
                 <li id="statement-btn-menu" class="p-3 flex items-center space-x-4 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors">
-                    <i class="fas fa-chart-bar text-xl text-cashpoint-pink"></i><span class="text-gray-700 font-medium">স্টেটমেন্ট</span>
+                    <i class="fas fa-chart-bar text-xl text-cashpoint-pink"></i>
+                    <span class="text-gray-700 font-medium">স্টেটমেন্ট</span>
                 </li>
                 <li id="update-info-btn" class="p-3 flex items-center space-x-4 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors">
-                    <i class="fas fa-sync-alt text-xl text-cashpoint-pink"></i><span class="text-gray-700 font-medium">তথ্য হালনাগাদ</span>
+                    <i class="fas fa-sync-alt text-xl text-cashpoint-pink"></i>
+                    <span class="text-gray-700 font-medium">তথ্য হালনাগাদ</span>
                 </li>
                 <li id="pin-setup-menu-btn" class="p-3 flex items-center space-x-4 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors">
-                    <i class="fas fa-key text-xl text-cashpoint-pink"></i><span class="text-gray-700 font-medium">পিন সেটআপ</span>
+                    <i class="fas fa-key text-xl text-cashpoint-pink"></i>
+                    <span class="text-gray-700 font-medium">পিন সেটআপ</span>
                 </li>
                 <li class="flex-grow"></li>
                 <li id="admin-settings-menu-btn" class="p-3 flex items-center space-x-4 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors border-t mt-2 pt-4 hidden">
-                    <i class="fas fa-cog text-xl text-cashpoint-pink"></i><span class="text-gray-700 font-medium">অ্যাডমিন প্যানেল</span>
+                    <i class="fas fa-cog text-xl text-cashpoint-pink"></i>
+                    <span class="text-gray-700 font-medium">অ্যাডমিন প্যানেল</span>
                 </li>
                 <li id="logout-btn" class="p-3 flex items-center space-x-4 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors border-t pt-4">
-                    <i class="fas fa-sign-out-alt text-xl text-cashpoint-pink"></i><span class="text-gray-700 font-medium">লগআউট</span>
+                    <i class="fas fa-sign-out-alt text-xl text-cashpoint-pink"></i>
+                    <span class="text-gray-700 font-medium">লগআউট</span>
                 </li>
             </ul>
         </aside>
@@ -96,42 +125,45 @@
         import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, updateProfile, EmailAuthProvider, reauthenticateWithCredential } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot, runTransaction, collection, query, where, getDocs, getDoc, addDoc, serverTimestamp, deleteDoc, updateDoc, increment, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Firebase configuration (CashPoint এর কনফিগারেশন)
+        // ============== Firebase Configuration (Single Source of Truth) ==============
         const firebaseConfig = {
             apiKey: "AIzaSyCb9v4Q8XsaBKpnopMHE_5_aXEEMkEQork",
             authDomain: "cashpoint-f8b51.firebaseapp.com",
             projectId: "cashpoint-f8b51",
             storageBucket: "cashpoint-f8b51.firebasestorage.app",
             messagingSenderId: "50891144664",
-            appId: "1:50891144664:web:e90f63977c95c86c04c6ad",
+            appId: "1:50891144664:web:e90f636c04c6ad",
             measurementId: "G-WJXSMFBEE6"
         };
         
         const appId = firebaseConfig.projectId;
         
+        // ============== Firebase Initialization ==============
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
         const provider = new GoogleAuthProvider();
 
+        // ============== Global State Variables ==============
         let currentUser = null;
         let isAdmin = false;
         let unsubscribeFromProfile = null;
-        
-        // Tournament Globals
+        let appConfig = { charges: {}, reserve: {}, paymentNumbers: {} };
+
+        // --- Tournament Specific Globals ---
         let postsUnsubscribe = null;
         let countdownInterval = null;
         let currentAdminFilter = 'active';
 
-        // UI Elements
+        // ============== UI Elements ==============
         const mainContent = document.getElementById('main-content');
+        const header = document.getElementById('header');
         const loadingOverlay = document.getElementById('loading-overlay');
         const messageBox = document.getElementById('message-box');
         const menuSidebar = document.getElementById('menu-sidebar');
         const menuBtn = document.getElementById('menu-btn');
         const bottomNav = document.getElementById('bottom-nav');
-        // ... (অন্যান্য UI এলিমেন্টগুলো এখানে প্রয়োজন অনুযায়ী যুক্ত করতে পারেন)
-
+        // Add other UI elements from your original file as needed...
 
         // ===================================================================
         // ||                সমন্বিত Helper ফাংশন                           ||
@@ -140,8 +172,8 @@
         function showMessage(text, type = 'info', duration = 3000) {
             messageBox.textContent = text;
             messageBox.classList.remove('scale-0');
-            const colorClass = type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500';
-            messageBox.style.backgroundColor = type === 'info' ? '#1a1a1a' : (type === 'success' ? '#22c55e' : '#ef4444');
+            const colorClass = type === 'success' ? '#22c55e' : type === 'error' ? '#ef4444' : '#1a1a1a';
+            messageBox.style.backgroundColor = colorClass;
             messageBox.classList.add('scale-100');
             setTimeout(() => {
                 messageBox.classList.remove('scale-100');
@@ -157,14 +189,14 @@
             navigator.clipboard.writeText(text).then(() => {
                 showMessage("কপি করা হয়েছে!");
             }).catch(err => {
-                console.error('Failed to copy text: ', err);
-                showMessage("কপি করতে ব্যর্থ হয়েছে।");
+                showMessage("কপি করতে ব্যর্থ হয়েছে।", 'error');
             });
         }
         window.copyToClipboard = copyToClipboard;
 
         function hashPin(pin) {
             let hash = 0;
+            if (pin.length === 0) return hash;
             for (let i = 0; i < pin.length; i++) {
                 const char = pin.charCodeAt(i);
                 hash = ((hash << 5) - hash) + char;
@@ -173,15 +205,10 @@
             return hash;
         }
 
-
         // ===================================================================
         // ||                CashPoint এর সকল ফাংশন                       ||
         // ===================================================================
-        
-        // renderLandingPage, renderDashboard, renderUpdateInfoForm, handleProfileSave,
-        // renderStatementPage, showTransactionDetails, showAddMoneyOptions, handleSendMoney,
-        // renderAdminDashboard, ইত্যাদি সকল CashPoint এর ফাংশন এখানে অপরিবর্তিতভাবে থাকবে...
-        // নিচে শুধু প্রয়োজনীয় কিছু ফাংশন দেখানো হলো, আপনার আসল ফাইল থেকে বাকিগুলো এখানে থাকবে।
+        // আপনার CashPoint এর মূল ফাইলের সব UI এবং লজিক ফাংশন এখানে অপরিবর্তিত থাকবে
         
         function renderSidebar(profileData) {
             const userName = profileData.name || 'ব্যবহারকারী';
@@ -190,98 +217,124 @@
             document.getElementById('sidebar-user-name').textContent = userName;
             document.getElementById('sidebar-user-mobile').textContent = userMobile;
             document.getElementById('sidebar-initial').textContent = userInitial;
-            document.getElementById('header-user-name').textContent = userName;
         }
-
-        function renderLandingPage(view = 'email', authMode = 'login') {
-            mainContent.innerHTML = `
-            <div class="flex flex-col items-center justify-center h-full p-4 text-center space-y-8">
-                <img src="https://placehold.co/150x150/E2136E/FFFFFF?text=CashPoint" alt="CashPoint Logo" class="w-28 h-28 mb-4 rounded-full">
-                <h2 class="text-3xl font-bold text-gray-800">CashPoint-এ স্বাগতম</h2>
-                <p class="text-gray-600">আপনার মোবাইল ব্যাংকিং এবং গেমিং যাত্রা শুরু করুন।</p>
-                <button id="google-signin-btn" class="w-full max-w-xs py-3 px-6 bg-cashpoint-pink text-white font-bold rounded-full shadow-lg flex items-center justify-center space-x-2 transition-transform transform hover:scale-105">
-                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M22.000 12.189c0-.756-.068-1.503-.198-2.235h-9.802v4.195h5.592c-.244 1.348-.992 2.484-2.112 3.284v2.704h3.488c2.043-1.892 3.228-4.664 3.228-8.086z"/><path d="M12.000 22.000c2.932 0 5.378-.973 7.168-2.617l-3.488-2.704c-.957.643-2.18.995-3.68.995-2.834 0-5.232-1.92-6.096-4.508h-3.68v2.846c1.782 3.535 5.253 5.988 9.776 5.988z"/><path d="M5.904 13.567c-.201-.643-.314-1.32-.314-2.007s.113-1.364.314-2.007v-2.846h-3.68c-.645 1.288-1.024 2.766-1.024 4.853s.379 3.565 1.024 4.853l3.68-2.846z"/><path d="M12.000 5.492c1.574 0 2.981.54 4.095 1.579l3.078-3.078c-1.874-1.742-4.298-2.822-7.173-2.822-4.523 0-7.994 2.453-9.776 5.988l3.68 2.846c.864-2.588 3.262-4.508 6.096-4.508z"/></svg>
-                    <span>Google দিয়ে সাইন ইন</span>
-                </button>
-            </div>`;
-             document.getElementById('google-signin-btn').addEventListener('click', handleGoogleSignIn);
+        
+        function updateHeader(title, profileData) {
+            header.innerHTML = `
+                <h1 class="text-2xl font-bold">${title}</h1>
+                <div id="user-info-header" class="flex items-center space-x-2">
+                    <span id="header-user-name" class="font-medium text-sm">${profileData.name || ''}</span>
+                </div>
+            `;
         }
-
+        
+        function renderLandingPage() {
+            // ... আপনার আগের ল্যান্ডিং পেজের সম্পূর্ণ কোড ...
+             mainContent.innerHTML = `
+                <div class="flex flex-col items-center justify-center h-full p-4 text-center space-y-8">
+                    <img src="https://placehold.co/150x150/E2136E/FFFFFF?text=CashPoint" alt="CashPoint Logo" class="w-28 h-28 mb-4 rounded-full">
+                    <h2 class="text-3xl font-bold text-gray-800">CashPoint-এ স্বাগতম</h2>
+                    <p class="text-gray-600">আপনার মোবাইল ব্যাংকিং ও গেমিং যাত্রা শুরু করুন।</p>
+                    <button id="google-signin-btn" class="w-full max-w-xs py-3 px-6 bg-cashpoint-pink text-white font-bold rounded-full shadow-lg flex items-center justify-center space-x-2 transition-transform transform hover:scale-105">
+                         <i class="fab fa-google text-xl"></i> <span>Google দিয়ে সাইন ইন</span>
+                    </button>
+                </div>
+            `;
+            document.getElementById('google-signin-btn').addEventListener('click', handleGoogleSignIn);
+        }
+        
         async function handleGoogleSignIn() {
-             showLoading(true);
-             try {
-                 const result = await signInWithPopup(auth, provider);
-                 const user = result.user;
-                 const userDocRef = doc(db, `artifacts/${appId}/users/${user.uid}`);
-                 const userDocSnap = await getDoc(userDocRef);
-                 if (!userDocSnap.exists()) {
-                     await setDoc(userDocRef, {
-                         name: user.displayName || 'New User',
-                         email: user.email,
-                         balance: 0.00,
-                         mobile: '',
-                         dob: '',
-                         isAdmin: false,
-                         pinHash: 0 // প্রাথমিক পিন হ্যাশ
-                     });
-                     showMessage("স্বাগতম! আপনার প্রোফাইল তৈরি হয়েছে।");
-                 } else {
-                     showMessage("সাইন ইন সফল হয়েছে!");
-                 }
-             } catch (error) {
-                 console.error("Google Sign-In Failed:", error);
-                 showMessage("সাইন ইন ব্যর্থ হয়েছে। আবার চেষ্টা করুন।");
-             } finally {
-                 showLoading(false);
-             }
+            showLoading(true);
+            try {
+                const result = await signInWithPopup(auth, provider);
+                const user = result.user;
+                const userDocRef = doc(db, `artifacts/${appId}/users/${user.uid}`);
+                const userDocSnap = await getDoc(userDocRef);
+                if (!userDocSnap.exists()) {
+                    await setDoc(userDocRef, {
+                        name: user.displayName || 'New User',
+                        email: user.email,
+                        balance: 0.00,
+                        mobile: '',
+                        dob: '',
+                        isAdmin: false,
+                        pinHash: 0 // Initial pinHash
+                    });
+                    showMessage("স্বাগতম! আপনার প্রোফাইল তৈরি হয়েছে।");
+                } else {
+                    showMessage("সাইন ইন সফল হয়েছে!");
+                }
+            } catch (error) {
+                console.error("Google Sign-In Failed:", error);
+                showMessage("সাইন ইন ব্যর্থ হয়েছে।", 'error');
+            } finally {
+                showLoading(false);
+            }
         }
         
-        // ... আপনার CashPoint এর অন্যান্য সব ফাংশন এখানে থাকবে ...
-        // ... ... ...
+        function renderDashboard(profileData) {
+            // ... আপনার আগের ড্যাশবোর্ডের সম্পূর্ণ কোড ...
+             mainContent.innerHTML = `
+                <div class="flex flex-col space-y-6">
+                     <div class="flex items-center space-x-4">
+                        <div class="w-12 h-12 rounded-full bg-cashpoint-pink flex items-center justify-center text-white text-xl font-bold">${(profileData.name || ' ').charAt(0).toUpperCase()}</div>
+                        <div>
+                            <h2 class="text-lg font-semibold text-gray-800">${profileData.name || 'ব্যবহারকারী'}</h2>
+                            <p class="text-sm text-gray-500 flex items-center">ID: <span class="font-mono text-xs break-all ml-1">${currentUser.uid.substring(0, 8)}...</span> <i class="fas fa-copy text-xs cursor-pointer hover:text-cashpoint-pink ml-2" onclick="copyToClipboard('${currentUser.uid}')"></i></p>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 shadow-md flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-500">ব্যালেন্স</p>
+                            <span class="text-2xl font-bold text-gray-800">৳ ${(profileData.balance || 0).toFixed(2)}</span>
+                        </div>
+                        <button class="bg-cashpoint-pink text-white text-sm font-semibold px-4 py-2 rounded-full shadow-lg">ব্যালেন্স দেখুন</button>
+                    </div>
+                     <div class="grid grid-cols-3 gap-4 text-center text-gray-600">
+                        <div id="send-money-btn" class="flex flex-col items-center p-3 rounded-lg hover:bg-gray-100 cursor-pointer"><i class="fas fa-paper-plane text-2xl text-cashpoint-pink mb-2"></i><span class="text-xs font-medium">সেন্ড মানি</span></div>
+                        <div id="transfer-money-btn" class="flex flex-col items-center p-3 rounded-lg hover:bg-gray-100 cursor-pointer"><i class="fas fa-exchange-alt text-2xl text-cashpoint-pink mb-2"></i><span class="text-xs font-medium">টাকা ট্রান্সফার</span></div>
+                        <div class="flex flex-col items-center p-3 rounded-lg text-gray-400"><i class="fas fa-mobile-alt text-2xl mb-2"></i><span class="text-xs font-medium">মোবাইল রিচার্জ</span></div>
+                        <div class="flex flex-col items-center p-3 rounded-lg text-gray-400"><i class="fas fa-hand-holding-usd text-2xl mb-2"></i><span class="text-xs font-medium">ক্যাশ আউট</span></div>
+                        <div class="flex flex-col items-center p-3 rounded-lg text-gray-400"><i class="fas fa-credit-card text-2xl mb-2"></i><span class="text-xs font-medium">পেমেন্ট</span></div>
+                        <div id="add-money-btn" class="flex flex-col items-center p-3 rounded-lg hover:bg-gray-100 cursor-pointer"><i class="fas fa-plus-circle text-2xl text-cashpoint-pink mb-2"></i><span class="text-xs font-medium">অ্যাড মানي</span></div>
+                    </div>
+                </div>
+             `;
+             document.getElementById('send-money-btn').onclick = () => navigateTo('/send-money');
+             document.getElementById('transfer-money-btn').onclick = () => navigateTo('/transfer-money');
+             document.getElementById('add-money-btn').onclick = () => navigateTo('/add-money');
+        }
         
+        // ... আপনার CashPoint এর বাকি সব ফাংশন যেমন renderSendMoneyFormStep1, renderAdminDashboard ইত্যাদি এখানে থাকবে ...
         
         // ===================================================================
-        // ||                Tournament এর সকল ফাংশন                       ||
+        // ||                Tournament এর সকল ফাংশন (মার্জড)                ||
         // ===================================================================
 
-        function renderTournamentView() {
-            // UI পরিবর্তন
-            document.getElementById('header').innerHTML = `
+        function renderTournamentView(profileData) {
+            header.innerHTML = `
                 <div class="flex items-center space-x-4">
                     <h1 class="text-2xl font-bold">টুর্নামেন্ট</h1>
                 </div>
                 <div class="text-right">
-                     <p class="text-xs">ব্যালেন্স</p>
-                     <p id="wallet-balance-tournament" class="font-bold text-base">৳0.00</p>
+                     <p class="text-xs text-white/80">ব্যালেন্স</p>
+                     <p id="wallet-balance-tournament" class="font-bold text-base">৳${(profileData.balance || 0).toFixed(2)}</p>
                 </div>
             `;
-            document.querySelectorAll('#bottom-nav > div').forEach(el => el.classList.remove('text-cashpoint-pink'));
-            document.getElementById('switch-to-tournament-nav').classList.add('text-cashpoint-pink');
-
             mainContent.innerHTML = `
                 <div id="admin-post-section" class="hidden mb-4 p-3 rounded-xl shadow-sm bg-white"></div>
                 <div class="flex items-center justify-between mb-4">
                     <h2 class="text-xl font-bold text-gray-800">চলমান টুর্নামেন্ট</h2>
                 </div>
                 <div id="posts-container" class="space-y-4"></div>
+                <div id="modal-container"></div>
             `;
             mainContent.className = 'flex-grow overflow-y-auto no-scrollbar p-4 bg-slate-100';
             
-            // সাইডবারে ব্যবহারকারীর নাম আপডেট করুন
-            const profileDocRef = doc(db, `artifacts/${appId}/users/${currentUser.uid}`);
-            getDoc(profileDocRef).then(docSnap => {
-                if (docSnap.exists()) {
-                    const userData = docSnap.data();
-                    document.getElementById('wallet-balance-tournament').textContent = `৳${(userData.balance || 0).toFixed(2)}`;
-                     if (userData.isAdmin) {
-                        document.getElementById('admin-post-section').classList.remove('hidden');
-                        renderAdminControls();
-                    } else {
-                        document.getElementById('admin-post-section').classList.add('hidden');
-                    }
-                }
-            });
-
+            if (isAdmin) {
+                document.getElementById('admin-post-section').classList.remove('hidden');
+                renderAdminControls();
+            }
             listenForPosts();
         }
 
@@ -292,66 +345,72 @@
                     const endTime = parseInt(el.dataset.countdownEnd, 10);
                     const distance = endTime - new Date().getTime();
                     if (distance < 0) {
-                        el.innerHTML = `<span class="text-green-600 font-bold">শুরু হয়ে গেছে</span>`;
-                        return;
+                        el.innerHTML = `<span class="text-green-600 font-bold">শুরু হয়ে গেছে</span>`; return;
                     }
                     const d = Math.floor(distance / (1000 * 60 * 60 * 24));
                     const h = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
                     const m = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
                     const s = Math.floor((distance % (1000 * 60)) / 1000);
-                    el.textContent = `${d}দি ${h}ঘন্টা ${m}মি ${s}সে`;
+                    let str = '';
+                    if (d > 0) str += `${d}দি `;
+                    if (h > 0 || d > 0) str += `${h}ঘন্টা `;
+                    str += `${m}মি ${s}সে`;
+                    el.textContent = str;
                 });
             }, 1000);
+        };
+        
+        const renderModal = (id, title, content) => {
+             // ... আপনার tournament.html থেকে renderModal এর সম্পূর্ণ কোড ...
         };
 
         const listenForPosts = async () => {
             if (postsUnsubscribe) postsUnsubscribe(); 
+            const postsContainerEl = document.getElementById('posts-container');
+            if (!postsContainerEl) return;
+            
+            postsContainerEl.innerHTML = `<div class="text-center p-5"><div class="animate-spin rounded-full h-8 w-8 border-4 border-pink-500 border-t-transparent mx-auto"></div></div>`;
             const postsCollection = collection(db, `artifacts/${appId}/public/data/posts`);
             let postsQuery = isAdmin 
                 ? (currentAdminFilter === 'all' ? query(postsCollection, orderBy('startTime', 'asc')) : query(postsCollection, where('status', '==', currentAdminFilter), orderBy('startTime', 'asc')))
                 : query(postsCollection, where('status', '==', 'active'), orderBy('startTime', 'asc'));
 
             postsUnsubscribe = onSnapshot(postsQuery, async (snapshot) => {
-                const postsContainerEl = document.getElementById('posts-container');
-                if (!postsContainerEl) return;
                 const postPromises = snapshot.docs.map(postDoc => createPostElement({ id: postDoc.id, ...postDoc.data() }));
                 const postElements = await Promise.all(postPromises);
+                
                 postsContainerEl.innerHTML = postElements.length === 0 
                     ? '<p class="text-center text-gray-500 p-8">কোনো টুর্নামেন্ট নেই।</p>' 
                     : '';
                 postElements.forEach(el => postsContainerEl.appendChild(el));
                 startCountdownManager();
-            }, (error) => console.error("Error listening for posts:", error));
+            }, (error) => {
+                console.error("Error listening for posts:", error);
+                postsContainerEl.innerHTML = '<p class="text-center text-red-500 p-8">টুর্নামেন্ট লোড করা যায়নি।</p>';
+            });
         };
 
         async function createPostElement(post) {
+            // ... আপনার tournament.html থেকে createPostElement এর সম্পূর্ণ কোড ...
+            // কিন্তু handleJoinContest এর onclick পরিবর্তন করতে হবে
             const postElement = document.createElement('div');
-            postElement.id = `post-${post.id}`;
-            const contestDetails = JSON.parse(post.contestDetails);
-            const startTime = post.startTime ? post.startTime.toDate() : new Date();
-            const participantsRef = collection(db, `artifacts/${appId}/public/data/posts/${post.id}/participants`);
-            const participantsSnapshot = await getDocs(participantsRef);
-            const hasJoined = (await getDoc(doc(participantsRef, currentUser.uid))).exists();
-            const isFull = participantsSnapshot.size >= contestDetails.maxPlayers;
+            // ... (HTML তৈরির সম্পূর্ণ লজিক এখানে)
             
-            // ... (বাকি HTML তৈরির কোড অপরিবর্তিত)
-            postElement.innerHTML = `<div>...</div>`; // এখানে আপনার আগের turnament.html এর পোস্ট তৈরির HTML থাকবে
-
-            if (isAdmin) {
-                // ... অ্যাডমিন বাটন ইভেন্ট
-            } else if (!hasJoined && !isFull) {
-                postElement.querySelector('.join-btn').onclick = () => handleJoinContest(post, 'USER_GAME_ID');
+             // Action button logic
+            const joinBtn = postElement.querySelector('.join-btn');
+            if (joinBtn) {
+                joinBtn.onclick = () => {
+                    const contestDetails = JSON.parse(post.contestDetails);
+                    const gameId = prompt(`আপনার ${contestDetails.requiredIdType} দিন:`);
+                    if (gameId && gameId.trim()) {
+                        handleJoinContest(post, gameId.trim());
+                    }
+                };
             }
-            
             return postElement;
         }
 
         async function handleJoinContest(post, idValue) {
-            // এই ফাংশনটি এখন API কল করবে
-            // UI থেকে ইনপুট নেওয়ার জন্য একটি Modal বা ইনলাইন ফর্ম তৈরি করতে হবে
-            const gameId = prompt(`Please enter your ${JSON.parse(post.contestDetails).requiredIdType}:`);
-            if (!gameId) return;
-
             showLoading(true);
             try {
                 const contestDetails = JSON.parse(post.contestDetails);
@@ -361,7 +420,7 @@
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                     body: JSON.stringify({
                         postId: post.id,
-                        idValue: gameId,
+                        idValue: idValue,
                         entryFee: contestDetails.entryFee,
                         contestName: contestDetails.contestName
                     })
@@ -377,19 +436,20 @@
         }
         
         async function handleFinalDistribution(e, postId, winners) {
+             // ... আপনার tournament.html থেকে handleFinalDistribution এর সম্পূর্ণ কোড ...
+             // শুধুমাত্র Firestore ট্রানজেকশনের পরিবর্তে /api/distributePrizes এ fetch কল হবে
              e.preventDefault();
              const password = e.target['admin-password'].value;
              if (!password) return showMessage('পাসওয়ার্ড দিন।', 'error');
              showLoading(true);
              try {
                  const user = auth.currentUser;
-                 const credential = EmailAuthProvider.credential(user.email, password);
-                 await reauthenticateWithCredential(user, credential);
+                 await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, password));
                  
                  const postDoc = await getDoc(doc(db, `artifacts/${appId}/public/data/posts/${postId}`));
                  const contestDetails = JSON.parse(postDoc.data().contestDetails);
-                 
                  const token = await user.getIdToken();
+
                  const response = await fetch('/api/distributePrizes', {
                      method: 'POST',
                      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -399,21 +459,22 @@
                  if (!response.ok) throw new Error(result.message);
 
                  showMessage(result.message, 'success');
-                 // Modal বন্ধ করার কোড
+                 document.getElementById('adminAuthModal')?.querySelector('.close-button').click();
+                 document.getElementById('managePrizesModal')?.querySelector('.close-button').click();
+
              } catch (error) {
-                 showMessage(error.code === 'auth/wrong-password' ? 'ভুল পাসওয়ার্ড।' : error.message, 'error');
+                showMessage(error.code === 'auth/wrong-password' ? 'ভুল পাসওয়ার্ড।' : error.message, 'error');
              } finally {
-                 showLoading(false);
+                showLoading(false);
              }
         }
 
-        // ... টুর্নামেন্টের বাকি সব ফাংশন (renderAdminControls, viewPlayersModal, editPostModal ইত্যাদি) এখানে থাকবে।
+        // ... টুর্নামেন্টের বাকি সব ফাংশন যেমন renderAdminControls, viewPlayersModal, editPostModal ইত্যাদি এখানে থাকবে ...
 
-        
         // ===================================================================
         // ||              রাউটার এবং Auth State Management                ||
         // ===================================================================
-
+        
         const navigateTo = (path) => {
             if (window.location.pathname !== path) {
                 history.pushState(null, null, path);
@@ -427,34 +488,36 @@
 
             if (!user) {
                 renderLandingPage();
+                bottomNav.classList.add('hidden');
+                header.innerHTML = `<h1 class="text-2xl font-bold">CashPoint</h1>`;
                 return;
             }
+            
+            showLoading(true);
+            const userDocRef = doc(db, `artifacts/${appId}/users/${user.uid}`);
+            const docSnap = await getDoc(userDocRef);
+            const profileData = docSnap.exists() ? docSnap.data() : { name: user.displayName, balance: 0.00 };
+            showLoading(false);
 
-            // ডিফল্ট হেডার রিসেট
-            document.getElementById('header').innerHTML = `
-                <h1 class="text-2xl font-bold">CashPoint</h1>
-                <div id="user-info-header" class="flex items-center space-x-2">
-                    <span id="header-user-name" class="font-medium text-sm"></span>
-                </div>
-            `;
-            mainContent.className = 'flex-grow flex flex-col p-4 overflow-y-auto';
-
+            document.querySelectorAll('#bottom-nav > div').forEach(el => el.classList.replace('text-cashpoint-pink', 'text-gray-500'));
 
             switch (path) {
                 case '/tournament':
-                    renderTournamentView();
+                    document.getElementById('switch-to-tournament-nav').classList.replace('text-gray-500', 'text-cashpoint-pink');
+                    renderTournamentView(profileData);
                     break;
                 case '/statement':
-                    // renderStatementPage(); // আপনার স্টেটমেন্ট ফাংশন কল
+                    // renderStatementPage(profileData);
                     break;
-                // ... অন্যান্য রাউট
+                // ... অন্যান্য CashPoint রাউট
                 default:
-                    document.querySelectorAll('#bottom-nav > div').forEach(el => el.classList.remove('text-cashpoint-pink'));
-                    document.getElementById('home-btn').classList.add('text-cashpoint-pink');
-                    // renderDashboard(); // আপনার ড্যাশবোর্ড ফাংশন কল
+                    document.getElementById('home-btn').classList.replace('text-gray-500', 'text-cashpoint-pink');
+                    updateHeader('CashPoint', profileData);
+                    renderDashboard(profileData);
                     break;
             }
         };
+        
         window.addEventListener('popstate', router);
         
         onAuthStateChanged(auth, (user) => {
@@ -468,32 +531,40 @@
                         const profileData = docSnap.data();
                         isAdmin = profileData.isAdmin;
                         document.getElementById('admin-settings-menu-btn').classList.toggle('hidden', !isAdmin);
-                        renderSidebar(profileData);
+                        renderSidebar(profileData); // সাইডবার সব সময় আপডেট হবে
+                         // Update balance on tournament view if currently active
+                        const tourneyBalance = document.getElementById('wallet-balance-tournament');
+                        if(tourneyBalance) tourneyBalance.textContent = `৳${(profileData.balance || 0).toFixed(2)}`;
                     }
-                    router(); // লগইন করার পর রাউটার কল হবে
                 });
+                router(); // Auth state পরিবর্তনের পর রাউটার কল হবে
 
             } else {
                 currentUser = null;
                 isAdmin = false;
-                bottomNav.classList.add('hidden');
                 if (unsubscribeFromProfile) unsubscribeFromProfile();
                 if (postsUnsubscribe) postsUnsubscribe();
-                mainContent.innerHTML = '';
                 router();
             }
-            showLoading(false);
         });
 
-        // Event Listeners
+        // ============== Event Listeners ==============
         document.getElementById('logout-btn').addEventListener('click', () => signOut(auth));
-        document.getElementById('menu-btn').addEventListener('click', () => menuSidebar.classList.toggle('open'));
+        menuBtn.addEventListener('click', () => menuSidebar.classList.add('open'));
+        document.addEventListener('click', (event) => {
+            if (menuSidebar.classList.contains('open') && !menuSidebar.contains(event.target) && !menuBtn.contains(event.target)) {
+                menuSidebar.classList.remove('open');
+            }
+        });
         
+        // --- Navigation Listeners ---
         document.getElementById('home-btn-menu').addEventListener('click', () => { navigateTo('/'); menuSidebar.classList.remove('open'); });
         document.getElementById('home-btn').addEventListener('click', () => navigateTo('/'));
         
         document.getElementById('switch-to-tournament-menu').addEventListener('click', () => { navigateTo('/tournament'); menuSidebar.classList.remove('open'); });
         document.getElementById('switch-to-tournament-nav').addEventListener('click', () => navigateTo('/tournament'));
+        
+        // ... আপনার অন্যান্য event listener গুলো এখানে থাকবে ...
 
     </script>
 </body>
