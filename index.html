@@ -469,12 +469,16 @@
                     <button id="change-pin-btn" class="w-full py-4 bg-gray-700 text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105">
                         <i class="fas fa-exchange-alt mr-2"></i> পিন পরিবর্তন করুন
                     </button>
+                    <button id="forgot-pin-btn" class="w-full py-4 bg-gray-400 text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105">
+                        <i class="fas fa-unlock-alt mr-2"></i> পিন ভুলে গেছেন?
+                    </button>
                     <button id="back-to-dashboard-btn" class="w-full py-3 bg-gray-400 text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105 mt-auto">ফিরে যান</button>
                 </div>
             `;
 
             document.getElementById('setup-new-pin-btn').addEventListener('click', renderSetupPinForm);
             document.getElementById('change-pin-btn').addEventListener('click', renderChangePinForm);
+            document.getElementById('forgot-pin-btn').addEventListener('click', () => navigateTo('/pin-forgot'));
             document.getElementById('back-to-dashboard-btn').addEventListener('click', () => {
                 navigateTo('/');
             });
@@ -640,7 +644,7 @@
             balanceTextDiv.append(balanceLabel, balanceSpan);
 
             const balanceButton = document.createElement('button');
-            balanceButton.className = 'bg-cashpoint-pink text-white text-sm font-semibold px-4 py-2 rounded-full shadow-lg transition-transform transform hover:scale-105';
+            balanceButton.className = 'bg-cashpoint-pink text-white text-sm font-semibold px-4 py-2 rounded-full shadow-lg flex items-center justify-center space-x-2 transition-transform transform hover:scale-105';
             balanceButton.textContent = 'ব্যালেন্স দেখুন';
             
             balanceDiv.append(balanceTextDiv, balanceButton);
@@ -993,17 +997,24 @@
             h2.textContent = 'লেনদেন নিশ্চিত করুন';
 
             const detailsDiv = document.createElement('div');
-            detailsDiv.className = 'bg-gray-100 p-4 rounded-xl space-y-2 text-sm w-full';
-            detailsDiv.innerHTML = `
-                <p class="flex justify-between">প্রাপক (${method}): <span class="font-semibold text-gray-800">${recipientNumber}</span></p>
-                <p class="flex justify-between">মোট পরিমাণ: <span class="font-semibold text-gray-800">৳ ${amount.toFixed(2)}</span></p>
-                <hr class="my-1">
-                <p class="flex justify-between text-green-600">চার্জ ফ্রি: <span class="font-semibold">- ৳ ${reserveUsed.toFixed(2)}</span></p>
-                <p class="flex justify-between text-orange-600">চার্জের পরিমাণ (${chargeConfig.percentage}%): <span class="font-semibold">৳ ${chargeableAmount.toFixed(2)}</span></p>
-                <p class="flex justify-between">মোট চার্জ: <span class="font-semibold text-gray-800"><span class="text-xs text-gray-500">${chargeBreakdownText}</span> ৳ ${totalCharge.toFixed(2)}</span></p>
-                <hr class="my-1 border-gray-300">
-                <p class="flex justify-between font-bold text-base">সর্বমোট কর্তন: <span class="text-gray-800">৳ ${totalDeduction.toFixed(2)}</span></p>
-            `;
+            detailsDiv.className = 'bg-gray-100 p-4 rounded-xl space-y-2 w-full';
+            
+            const recipientP = document.createElement('p');
+            recipientP.className = 'text-sm text-gray-600 flex justify-between';
+            recipientP.innerHTML = `প্রাপক (${method}): <span class="font-semibold text-gray-800">${recipientNumber}</span></p>`;
+            const amountP = document.createElement('p');
+            amountP.className = 'text-sm text-gray-600 flex justify-between';
+            amountP.innerHTML = `মোট পরিমাণ: <span class="font-semibold text-gray-800">৳ ${amount.toFixed(2)}</span>`;
+            const chargeP = document.createElement('p');
+            chargeP.className = 'text-sm text-gray-600 flex justify-between';
+            chargeP.innerHTML = `চার্জের পরিমাণ (${chargeConfig.percentage}%): <span class="font-semibold text-gray-800"><span class="text-xs text-gray-500">${chargeBreakdownText}</span> ৳ ${totalCharge.toFixed(2)}</span>`;
+            const hr = document.createElement('hr');
+            hr.className = 'my-1 border-gray-300';
+            const totalP = document.createElement('p');
+            totalP.className = 'text-sm text-gray-600 flex justify-between font-bold';
+            totalP.innerHTML = `সর্বমোট কর্তন: <span class="font-semibold text-gray-800">৳ ${totalDeduction.toFixed(2)}</span>`;
+            
+            detailsDiv.append(recipientP, amountP, chargeP, hr, totalP);
 
             const pinInput = document.createElement('input');
             pinInput.type = 'password';
@@ -1216,9 +1227,7 @@
             });
 
             findRecipientBtn.addEventListener('click', findRecipientAndRenderFormStep2);
-            document.getElementById('cancel-btn').addEventListener('click', () => {
-                navigateTo('/');
-            });
+            document.getElementById('cancel-btn').addEventListener('click', () => navigateTo('/'));
         }
 
         async function findRecipientAndRenderFormStep2() {
@@ -2115,6 +2124,9 @@
                     break;
                 case '/pin-setup':
                      if (user) renderPinSetupOptions();
+                    break;
+                case '/pin-forgot':
+                    if (user) renderForgotPinForm();
                     break;
                 case '/statement':
                     if(user) {
