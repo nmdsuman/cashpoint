@@ -72,8 +72,9 @@
                          <p class="text-xs text-gray-500">ব্যালেন্স</p>
                          <p id="wallet-balance" class="font-bold text-green-600">৳০.০০</p>
                     </div>
-                    <!-- Cash Admin quick switch -->
-                    <div id="role-switch" class="hidden bg-slate-200 rounded-full p-1 flex items-center">
+                    <!-- Admin quick switches (visible only for admins) -->
+                    <div id="role-switch" class="hidden bg-slate-200 rounded-full p-1 flex items-center space-x-1">
+                        <button id="btn-tournament-admin" class="px-3 py-1 text-xs font-semibold rounded-full bg-white text-gray-800">Tournament Admin</button>
                         <button id="btn-cash-admin" class="px-3 py-1 text-xs font-semibold rounded-full bg-white text-gray-800">Cash Admin</button>
                     </div>
                     <button id="logout-btn" class="w-10 h-10 flex items-center justify-center bg-red-50 text-red-500 rounded-full hover:bg-red-100 transition">
@@ -197,10 +198,16 @@
                     if (userData) {
                         document.getElementById('welcome-message').textContent = userData.fullName || 'ব্যবহারকারী';
                         document.getElementById('wallet-balance').textContent = `৳${(userData.balance || 0).toFixed(2)}`;
-                        // Show role switch for all authenticated users
-                        roleSwitchEl.classList.remove('hidden');
-                        // Admin-specific visibility for in-page admin controls
-                        if (userData.isAdmin === true) {
+                        // Header admin buttons visible only for admins
+                        const isAdminUser = userData.isAdmin === true;
+                        if (isAdminUser) {
+                            roleSwitchEl.classList.remove('hidden');
+                        } else {
+                            roleSwitchEl.classList.add('hidden');
+                        }
+                        // Admin-specific visibility only on admin route
+                        const isAdminRoute = window.location.pathname === '/admin-t';
+                        if (isAdminUser && isAdminRoute) {
                             adminPostSectionEl.classList.remove('hidden');
                             renderAdminControls();
                         } else {
@@ -208,7 +215,7 @@
                         }
                         // If user opened the dedicated tournament admin route, enforce access
                         if (window.location.pathname === '/admin-t') {
-                            if (userData.isAdmin === true) {
+                            if (isAdminUser) {
                                 adminPostSectionEl.classList.remove('hidden');
                                 // ensure controls visible in case of late load
                                 if (!adminPostSectionEl.querySelector('#open-create-post-modal')) {
@@ -242,6 +249,14 @@
         if (btnCashAdmin) {
             btnCashAdmin.onclick = () => {
                 window.location.href = 'https://cashpointt.vercel.app/admin-c';
+            };
+        }
+
+        // --- Navigation handler for Tournament Admin ---
+        const btnTournamentAdmin = document.getElementById('btn-tournament-admin');
+        if (btnTournamentAdmin) {
+            btnTournamentAdmin.onclick = () => {
+                window.location.href = '/admin-t';
             };
         }
 
@@ -357,8 +372,9 @@
 
             const postsCollection = collection(db, 'artifacts', appId, 'public', 'data', 'posts');
             const userDoc = await getDoc(doc(db, 'artifacts', appId, 'users', currentUser.uid));
-            const isAdmin = userDoc.data()?.isAdmin === true;
-            const currentUserRole = isAdmin ? 'admin' : 'user';
+            const isAdminUser = userDoc.data()?.isAdmin === true;
+            const isAdminRoute = window.location.pathname === '/admin-t';
+            const currentUserRole = (isAdminUser && isAdminRoute) ? 'admin' : 'user';
 
             let postsQuery;
             if (currentUserRole === 'admin') {
