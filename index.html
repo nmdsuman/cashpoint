@@ -126,6 +126,11 @@
                     <span class="text-gray-700 font-medium">তথ্য হালনাগাদ</span>
                 </li>
                 
+                <li id="my-profile-menu-btn" class="p-3 flex items-center space-x-4 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors">
+                    <i class="fas fa-user text-xl text-cashpoint-pink"></i>
+                    <span class="text-gray-700 font-medium">আমার প্রোফাইল</span>
+                </li>
+                
                 <li id="pin-setup-menu-btn" class="p-3 flex items-center space-x-4 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors">
                     <i class="fas fa-key text-xl text-cashpoint-pink"></i>
                     <span class="text-gray-700 font-medium">পিন সেটআপ</span>
@@ -270,6 +275,7 @@
         const bottomNav = document.getElementById('bottom-nav');
         const pinSetupMenuBtn = document.getElementById('pin-setup-menu-btn');
         const gamingBtn = document.getElementById('gaming-btn');
+        const myProfileMenuBtn = document.getElementById('my-profile-menu-btn');
 
         // Function to generate a unique transaction ID
         function generateTransactionId() {
@@ -1050,14 +1056,12 @@
                     <button id="nagad-transfer-btn" class="w-full py-4 bg-cashpoint-pink text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105">
                         <i class="fas fa-mobile-alt mr-2"></i> নগদ
                     </button>
-                    <button id="back-to-dashboard-btn" class="w-full py-3 bg-gray-400 text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105">ফিরে যান</button>
+                    <button id="back-to-transfer-options-btn" class="w-full py-3 bg-gray-400 text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105">ফিরে যান</button>
                 </div>
             `;
             document.getElementById('bkash-transfer-btn').addEventListener('click', () => showMoneyTransferForm('bkash'));
             document.getElementById('nagad-transfer-btn').addEventListener('click', () => showMoneyTransferForm('nagad'));
-            document.getElementById('back-to-dashboard-btn').addEventListener('click', () => {
-                navigateTo('/');
-            });
+            document.getElementById('back-to-transfer-options-btn').addEventListener('click', () => navigateTo('/transfer-money'));
         }
 
         // Render the money transfer form (SAFE - No user-generated content)
@@ -2283,6 +2287,14 @@
                         `;
                     }
                     break;
+                case '/myprofile':
+                    if(user) {
+                        const profileDocRef = doc(db, `artifacts/${appId}/users/${user.uid}`);
+                        const docSnap = await getDoc(profileDocRef);
+                        const profileData = docSnap.exists() ? docSnap.data() : {};
+                        renderMyProfile(profileData);
+                    }
+                    break;
                 default: 
                     // যদি কোন লিঙ্ক না মিলে, হোম পেজে পাঠিয়ে দিন
                     navigateTo('/');
@@ -2402,27 +2414,68 @@
             }
         }
         
-        async function listenForConfigUpdates() {
-            const configDocRef = doc(db, `artifacts/${appId}/admin_config/settings`);
-            onSnapshot(configDocRef, (doc) => {
-                if (doc.exists()) {
-                    appConfig = { ...appConfig, ...doc.data() };
-                }
-            }, (error) => console.error("Error listening for config updates:", error));
-        }
+        // [SECURE] আলাদা 'আমার প্রোফাইল' পেজ
+        function renderMyProfile(profileData = {}) {
+            const name = profileData.name || 'ব্যবহারকারী';
+            const email = auth.currentUser?.email || '';
+            const dob = profileData.dob || '';
+            const mobile = profileData.mobile || '';
+            const initial = name ? name.charAt(0).toUpperCase() : 'U';
 
-        window.onload = async () => {
-            showLoading(true);
-            await listenForConfigUpdates();
-            try {
-                if (initialAuthToken) await signInWithCustomToken(auth, initialAuthToken);
-                else await signInAnonymously(auth);
-            } catch (error) {
-                console.error("Firebase Auth initialization failed:", error);
-            } finally {
-                // onAuthStateChanged will handle the final loading state and routing
-            }
-        };
+            mainContent.innerHTML = '';
+            mainContent.className = 'flex flex-col h-full p-4 space-y-6';
+
+            const headerDiv = document.createElement('div');
+            headerDiv.className = 'flex items-center space-x-4';
+            const avatar = document.createElement('div');
+            avatar.className = 'w-16 h-16 rounded-full bg-cashpoint-pink text-white flex items-center justify-center text-2xl font-bold shadow';
+            avatar.textContent = initial;
+            const titleBox = document.createElement('div');
+            const title = document.createElement('h2');
+            title.className = 'text-2xl font-bold text-gray-800';
+            title.textContent = name;
+            const sub = document.createElement('p');
+            sub.className = 'text-sm text-gray-500';
+            sub.textContent = 'আমার প্রোফাইল';
+            titleBox.append(title, sub);
+            headerDiv.append(avatar, titleBox);
+
+            const card = document.createElement('div');
+            card.className = 'bg-white rounded-xl shadow-md divide-y';
+            const mkRow = (label, value) => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center justify-between px-4 py-3';
+                const l = document.createElement('span');
+                l.className = 'text-gray-500 text-sm';
+                l.textContent = label;
+                const v = document.createElement('span');
+                v.className = 'text-gray-800 text-sm font-medium break-all';
+                v.textContent = value || '-';
+                row.append(l, v);
+                return row;
+            };
+            card.append(
+                mkRow('নাম', name),
+                mkRow('ইমেইল', email),
+                mkRow('জন্মতারিখ', dob),
+                mkRow('মোবাইল', mobile),
+                mkRow('ইউজার আইডি', currentUser.uid)
+            );
+
+            const actions = document.createElement('div');
+            actions.className = 'grid grid-cols-2 gap-3';
+            const editBtn = document.createElement('button');
+            editBtn.className = 'w-full py-3 bg-cashpoint-pink text-white font-bold rounded-xl shadow-lg';
+            editBtn.textContent = 'প্রোফাইল সম্পাদনা';
+            editBtn.onclick = () => navigateTo('/update-profile');
+            const backBtn = document.createElement('button');
+            backBtn.className = 'w-full py-3 bg-gray-400 text-white font-bold rounded-xl shadow-lg';
+            backBtn.textContent = 'ফিরে যান';
+            backBtn.onclick = () => navigateTo('/');
+            actions.append(editBtn, backBtn);
+
+            mainContent.append(headerDiv, card, actions);
+        }
 
         logoutBtn.addEventListener('click', async () => {
             await handleLogout();
@@ -2477,35 +2530,17 @@
                 window.location.href = '/turnament';
             });
         }
-    </script>
-</body>
-</html>
+        if (myProfileMenuBtn) {
+            myProfileMenuBtn.addEventListener('click', () => {
+                navigateTo('/myprofile');
+                menuSidebar.classList.remove('open');
+            });
         }
-        
-        pinSetupMenuBtn.addEventListener('click', () => {
-            navigateTo('/pin-setup');
-            menuSidebar.classList.remove('open');
-        });
 
-        if (homeBtn) {
-            homeBtn.addEventListener('click', () => navigateTo('/'));
-        }
-        if (homeBtnMenu) {
-            homeBtnMenu.addEventListener('click', () => {
-                navigateTo('/');
-                menuSidebar.classList.remove('open');
-            });
-        }
-        if (statementBtnMenu) {
-            statementBtnMenu.addEventListener('click', () => {
-                navigateTo('/statement');
-                menuSidebar.classList.remove('open');
-            });
-        }
-        if (gamingBtn) {
-            gamingBtn.addEventListener('click', () => {
-                window.location.href = '/turnament';
-            });
+        const headerUserNameSpan = document.getElementById('header-user-name');
+        if (headerUserNameSpan) {
+            headerUserNameSpan.textContent = '';
+            headerUserNameSpan.onclick = () => navigateTo('/myprofile');
         }
     </script>
 </body>
