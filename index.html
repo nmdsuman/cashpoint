@@ -510,6 +510,23 @@
             document.getElementById('back-to-pin-options-btn').addEventListener('click', () => navigateTo('/pin-setup'));
         }
 
+        // পিন পরিবর্তন করার ফর্ম (রুট: /change-pin)
+        function renderChangePinForm() {
+            mainContent.innerHTML = `
+                <div class="flex flex-col h-full p-4 space-y-6">
+                    <h2 class="text-2xl font-bold text-cashpoint-pink mb-4">পিন পরিবর্তন করুন</h2>
+                    <form id="change-pin-form" class="w-full space-y-4">
+                        <input type="password" id="old-pin-input" placeholder="পুরাতন ৪-সংখ্যার পিন দিন" maxlength="4" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cashpoint-pink">
+                        <input type="password" id="new-pin-input" placeholder="নতুন ৪-সংখ্যার পিন দিন" maxlength="4" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cashpoint-pink">
+                        <button type="submit" class="w-full py-3 bg-cashpoint-pink text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105">পিন পরিবর্তন করুন</button>
+                    </form>
+                    <button id="back-to-pin-options-btn" class="w-full py-3 bg-gray-400 text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105">ফিরে যান</button>
+                </div>
+            `;
+            document.getElementById('change-pin-form').addEventListener('submit', handleChangePin);
+            document.getElementById('back-to-pin-options-btn').addEventListener('click', () => navigateTo('/pin-setup'));
+        }
+
         async function handleSetupPin(event) {
             event.preventDefault();
             const newPin = document.getElementById('new-pin-input').value;
