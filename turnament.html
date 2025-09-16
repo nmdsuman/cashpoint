@@ -72,10 +72,9 @@
                          <p class="text-xs text-gray-500">ব্যালেন্স</p>
                          <p id="wallet-balance" class="font-bold text-green-600">৳০.০০</p>
                     </div>
-                    <!-- Role switch: User / Admin -->
+                    <!-- Cash Admin quick switch -->
                     <div id="role-switch" class="hidden bg-slate-200 rounded-full p-1 flex items-center">
-                        <button id="btn-user-app" class="px-3 py-1 text-xs font-semibold rounded-full bg-white text-gray-800">User</button>
-                        <button id="btn-admin-panel" class="px-3 py-1 text-xs font-semibold rounded-full text-gray-700 hover:bg-white hidden ml-1">Admin</button>
+                        <button id="btn-cash-admin" class="px-3 py-1 text-xs font-semibold rounded-full bg-white text-gray-800">Cash Admin</button>
                     </div>
                     <button id="logout-btn" class="w-10 h-10 flex items-center justify-center bg-red-50 text-red-500 rounded-full hover:bg-red-100 transition">
                         <i class="fas fa-sign-out-alt"></i>
@@ -135,8 +134,7 @@
         const modalContainerEl = document.getElementById('modal-container');
         // Role switch elements
         const roleSwitchEl = document.getElementById('role-switch');
-        const btnUserApp = document.getElementById('btn-user-app');
-        const btnAdminPanel = document.getElementById('btn-admin-panel');
+        const btnCashAdmin = document.getElementById('btn-cash-admin');
         const logoutBtn = document.getElementById('logout-btn');
         const walletArea = document.getElementById('wallet-area');
 
@@ -201,14 +199,12 @@
                         document.getElementById('wallet-balance').textContent = `৳${(userData.balance || 0).toFixed(2)}`;
                         // Show role switch for all authenticated users
                         roleSwitchEl.classList.remove('hidden');
-                        // Admin-specific visibility
+                        // Admin-specific visibility for in-page admin controls
                         if (userData.isAdmin === true) {
                             adminPostSectionEl.classList.remove('hidden');
                             renderAdminControls();
-                            btnAdminPanel.classList.remove('hidden');
                         } else {
                             adminPostSectionEl.classList.add('hidden');
-                            btnAdminPanel.classList.add('hidden');
                         }
                     }
                 });
@@ -226,21 +222,13 @@
                 loadingEl.classList.add('hidden');
                 // Hide role switch when logged out
                 roleSwitchEl.classList.add('hidden');
-                btnAdminPanel.classList.add('hidden');
             }
         });
 
-        // --- Navigation handlers for role switch ---
-        if (btnUserApp) {
-            btnUserApp.onclick = () => {
-                // Go to CashPoint user app (index.html SPA home)
-                window.location.href = '/';
-            };
-        }
-        if (btnAdminPanel) {
-            btnAdminPanel.onclick = () => {
-                // Go to CashPoint admin panel route handled by index.html router
-                window.location.href = '/admin';
+        // --- Navigation handler for Cash Admin ---
+        if (btnCashAdmin) {
+            btnCashAdmin.onclick = () => {
+                window.location.href = 'https://cashpointt.vercel.app/admin';
             };
         }
 
