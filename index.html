@@ -2286,6 +2286,9 @@
                         renderMyProfile(profileData);
                     }
                     break;
+                case '/create-pin':
+                    if(user) renderSetupPinForm();
+                    break;
                 case '/change-pin':
                     if(user) renderChangePinForm();
                     break;
