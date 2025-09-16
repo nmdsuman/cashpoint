@@ -484,7 +484,7 @@
                 </div>
             `;
 
-            document.getElementById('setup-new-pin-btn').addEventListener('click', renderSetupPinForm);
+            document.getElementById('setup-new-pin-btn').addEventListener('click', () => navigateTo('/create-pin'));
             document.getElementById('change-pin-btn').addEventListener('click', () => navigateTo('/change-pin'));
             document.getElementById('forgot-pin-btn').addEventListener('click', () => navigateTo('/pin-forgot'));
             document.getElementById('back-to-dashboard-btn').addEventListener('click', () => {
