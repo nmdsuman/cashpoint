@@ -503,7 +503,7 @@
                         <input type="password" id="confirm-new-pin-input" placeholder="পিনটি আবার দিন (কনফার্ম)" maxlength="4" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cashpoint-pink">
                         <button type="submit" class="w-full py-3 bg-cashpoint-pink text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105">পিন সেট করুন</button>
                     </form>
-                    <button id="back-to-pin-options-btn" class="w-full py-3 bg-gray-400 text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105">ফিরে যান</button>
+                    <button type="button" id="back-to-pin-options-btn" class="w-full py-3 bg-gray-400 text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105">ফিরে যান</button>
                 </div>
             `;
             document.getElementById('setup-pin-form').addEventListener('submit', handleSetupPin);
@@ -520,7 +520,7 @@
                         <input type="password" id="new-pin-input" placeholder="নতুন ৪-সংখ্যার পিন দিন" maxlength="4" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cashpoint-pink">
                         <button type="submit" class="w-full py-3 bg-cashpoint-pink text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105">পিন পরিবর্তন করুন</button>
                     </form>
-                    <button id="back-to-pin-options-btn" class="w-full py-3 bg-gray-400 text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105">ফিরে যান</button>
+                    <button type="button" id="back-to-pin-options-btn" class="w-full py-3 bg-gray-400 text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105">ফিরে যান</button>
                 </div>
             `;
             document.getElementById('change-pin-form').addEventListener('submit', handleChangePin);
