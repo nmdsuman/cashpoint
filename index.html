@@ -317,10 +317,16 @@
         function renderSidebar(profileData) {
             const userName = profileData.name || 'ব্যবহারকারী';
             const userMobile = profileData.mobile || '';
+            const userDob = profileData.dob || '';
+            const userEmail = (auth.currentUser && auth.currentUser.email) ? auth.currentUser.email : '';
             const userInitial = userName ? userName.charAt(0).toUpperCase() : ' ';
 
             sidebarUserName.textContent = userName;
-            sidebarUserMobile.textContent = userMobile;
+            const parts = [];
+            if (userEmail) parts.push(`ইমেইল: ${userEmail}`);
+            if (userDob) parts.push(`জন্ম: ${userDob}`);
+            if (userMobile) parts.push(`মোবাইল: ${userMobile}`);
+            sidebarUserMobile.textContent = parts.join(' • ');
             sidebarInitial.textContent = userInitial;
         }
 
@@ -667,12 +673,23 @@
         function renderDashboard(profileData) {
             const userName = profileData.name || 'ব্যবহারকারী';
             const balance = profileData.balance !== undefined ? profileData.balance.toFixed(2) : '0.00';
+            const userEmail = (auth.currentUser && auth.currentUser.email) ? auth.currentUser.email : '';
+            const userDob = profileData.dob || '';
+            const userMobile = profileData.mobile || '';
 
             // Securely update header
             const headerH1 = document.querySelector('#header h1');
             if (headerH1) headerH1.textContent = 'CashPoint';
             const headerUserNameSpan = document.getElementById('header-user-name');
-            if (headerUserNameSpan) headerUserNameSpan.textContent = userName;
+            if (headerUserNameSpan) {
+                headerUserNameSpan.textContent = userName;
+                const titleParts = [];
+                titleParts.push(`নাম: ${userName}`);
+                if (userEmail) titleParts.push(`ইমেইল: ${userEmail}`);
+                if (userDob) titleParts.push(`জন্মতারিখ: ${userDob}`);
+                if (userMobile) titleParts.push(`মোবাইল: ${userMobile}`);
+                headerUserNameSpan.title = titleParts.join('\n');
+            }
 
             renderSidebar(profileData);
 
@@ -699,6 +716,14 @@
             nameH2.className = 'text-lg font-semibold text-gray-800';
             nameH2.textContent = userName;
 
+            const profileLine = document.createElement('p');
+            profileLine.className = 'text-xs text-gray-500';
+            const infoParts = [];
+            if (userEmail) infoParts.push(userEmail);
+            if (userDob) infoParts.push(userDob);
+            if (userMobile) infoParts.push(userMobile);
+            profileLine.textContent = infoParts.join(' • ');
+
             const idPara = document.createElement('p');
             idPara.className = 'text-sm text-gray-500 flex items-center';
             
@@ -711,7 +736,7 @@
             copyIcon.onclick = () => copyToClipboard(currentUser.uid);
 
             idPara.append(idSpan, copyIcon);
-            nameIdDiv.append(nameH2, idPara);
+            nameIdDiv.append(nameH2, profileLine, idPara);
             
             const trophyIcon = document.createElement('i');
             trophyIcon.className = 'fas fa-trophy text-2xl text-yellow-500';
@@ -2341,13 +2366,16 @@
                 const request = doc.data();
                 const requestEl = document.createElement('div');
                 requestEl.className = 'p-3 bg-white rounded-lg shadow-sm flex items-center justify-between';
-                requestEl.innerHTML = `
-                    <div>
-                        <p class="text-sm font-semibold">${request.method.toUpperCase()} থেকে ৳ ${request.amount}</p>
-                        <p class="text-xs text-gray-500">ট্রানজেকশন আইডি: <span class="font-mono">${request.txId}</span></p>
-                    </div>
-                    <span class="text-xs font-semibold text-orange-500"><i class="fas fa-clock mr-1"></i> অপেক্ষমাণ</span>
-                `;
+
+                const requestText = document.createElement('p');
+                requestText.className = 'text-sm text-gray-600';
+                requestText.textContent = `বিকাশ থেকে ৳ ${request.amount} পাঠানো হয়েছে।`;
+
+                const statusText = document.createElement('p');
+                statusText.className = 'text-xs font-semibold text-orange-500';
+                statusText.textContent = 'অপেক্ষমাণ';
+
+                requestEl.append(requestText, statusText);
                 requestsListEl.appendChild(requestEl);
             });
             
@@ -2356,13 +2384,16 @@
                 const transfer = doc.data();
                 const transferEl = document.createElement('div');
                 transferEl.className = 'p-3 bg-white rounded-lg shadow-sm flex items-center justify-between';
-                transferEl.innerHTML = `
-                    <div>
-                        <p class="text-sm font-semibold">${transfer.method.toUpperCase()} তে ট্রান্সফার রিকোয়েস্ট: ৳ ${transfer.amount}</p>
-                        <p class="text-xs text-gray-500">প্রাপকের নম্বর: <span class="font-mono">${transfer.recipientNumber}</span></p>
-                    </div>
-                    <span class="text-xs font-semibold text-orange-500"><i class="fas fa-clock mr-1"></i> অপেক্ষমাণ</span>
-                `;
+
+                const transferText = document.createElement('p');
+                transferText.className = 'text-sm text-gray-600';
+                transferText.textContent = `ট্রান্সফার রিকোয়েস্ট: ৳ ${transfer.amount} (${transfer.method})`;
+
+                const statusText = document.createElement('p');
+                statusText.className = 'text-xs font-semibold text-orange-500';
+                statusText.textContent = 'অপেক্ষমাণ';
+
+                transferEl.append(transferText, statusText);
                 requestsListEl.appendChild(transferEl);
             });
 
@@ -2419,6 +2450,36 @@
                     menuSidebar.classList.remove('open');
                 }
             });
+        }
+        
+        pinSetupMenuBtn.addEventListener('click', () => {
+            navigateTo('/pin-setup');
+            menuSidebar.classList.remove('open');
+        });
+
+        if (homeBtn) {
+            homeBtn.addEventListener('click', () => navigateTo('/'));
+        }
+        if (homeBtnMenu) {
+            homeBtnMenu.addEventListener('click', () => {
+                navigateTo('/');
+                menuSidebar.classList.remove('open');
+            });
+        }
+        if (statementBtnMenu) {
+            statementBtnMenu.addEventListener('click', () => {
+                navigateTo('/statement');
+                menuSidebar.classList.remove('open');
+            });
+        }
+        if (gamingBtn) {
+            gamingBtn.addEventListener('click', () => {
+                window.location.href = '/turnament';
+            });
+        }
+    </script>
+</body>
+</html>
         }
         
         pinSetupMenuBtn.addEventListener('click', () => {
