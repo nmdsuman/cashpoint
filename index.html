@@ -485,7 +485,7 @@
             `;
 
             document.getElementById('setup-new-pin-btn').addEventListener('click', renderSetupPinForm);
-            document.getElementById('change-pin-btn').addEventListener('click', renderChangePinForm);
+            document.getElementById('change-pin-btn').addEventListener('click', () => navigateTo('/change-pin'));
             document.getElementById('forgot-pin-btn').addEventListener('click', () => navigateTo('/pin-forgot'));
             document.getElementById('back-to-dashboard-btn').addEventListener('click', () => {
                 navigateTo('/');
@@ -500,40 +500,30 @@
                     <p class="text-sm text-gray-600">আপনি শুধুমাত্র একবার আপনার পিন সেট করতে পারবেন। এরপর থেকে আপনাকে পিন পরিবর্তন করতে হবে।</p>
                     <form id="setup-pin-form" class="w-full space-y-4">
                         <input type="password" id="new-pin-input" placeholder="নতুন ৪-সংখ্যার পিন দিন" maxlength="4" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cashpoint-pink">
-                        <button type="submit" class="w-full py-3 bg-cashpoint-pink text-white font-bold rounded-xl shadow-lg">পিন সেট করুন</button>
+                        <input type="password" id="confirm-new-pin-input" placeholder="পিনটি আবার দিন (কনফার্ম)" maxlength="4" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cashpoint-pink">
+                        <button type="submit" class="w-full py-3 bg-cashpoint-pink text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105">পিন সেট করুন</button>
                     </form>
-                    <button id="back-to-pin-options-btn" class="w-full py-3 bg-gray-400 text-white font-bold rounded-xl shadow-lg">ফিরে যান</button>
+                    <button id="back-to-pin-options-btn" class="w-full py-3 bg-gray-400 text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105">ফিরে যান</button>
                 </div>
             `;
             document.getElementById('setup-pin-form').addEventListener('submit', handleSetupPin);
             document.getElementById('back-to-pin-options-btn').addEventListener('click', () => navigateTo('/pin-setup'));
         }
 
-        // পিন পরিবর্তন করার ফর্ম
-        function renderChangePinForm() {
-            mainContent.innerHTML = `
-                <div class="flex flex-col h-full p-4 space-y-6">
-                    <h2 class="text-2xl font-bold text-cashpoint-pink mb-4">পিন পরিবর্তন করুন</h2>
-                    <form id="change-pin-form" class="w-full space-y-4">
-                        <input type="password" id="old-pin-input" placeholder="আপনার পুরাতন পিন দিন" maxlength="4" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cashpoint-pink">
-                        <input type="password" id="new-pin-input" placeholder="আপনার নতুন পিন দিন" maxlength="4" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cashpoint-pink">
-                        <button type="submit" class="w-full py-3 bg-cashpoint-pink text-white font-bold rounded-xl shadow-lg">পিন পরিবর্তন করুন</button>
-                    </form>
-                    <button id="back-to-pin-options-btn" class="w-full py-3 bg-gray-400 text-white font-bold rounded-xl shadow-lg">ফিরে যান</button>
-                </div>
-            `;
-            document.getElementById('change-pin-form').addEventListener('submit', handleChangePin);
-            document.getElementById('back-to-pin-options-btn').addEventListener('click', () => navigateTo('/pin-setup'));
-        }
-
-        // API কল করার জন্য হ্যান্ডলার ফাংশন
         async function handleSetupPin(event) {
             event.preventDefault();
             const newPin = document.getElementById('new-pin-input').value;
+            const confirmNewPin = document.getElementById('confirm-new-pin-input').value;
+
             if (newPin.length !== 4) {
                 showMessage("পিন অবশ্যই ৪ সংখ্যার হতে হবে।");
                 return;
             }
+            if (confirmNewPin && newPin !== confirmNewPin) {
+                showMessage('দুটি পিন মিলছে না।');
+                return;
+            }
+
             showLoading(true);
             try {
                 const token = await auth.currentUser.getIdToken();
@@ -2278,6 +2268,9 @@
                         const profileData = docSnap.exists() ? docSnap.data() : {};
                         renderMyProfile(profileData);
                     }
+                    break;
+                case '/change-pin':
+                    if(user) renderChangePinForm();
                     break;
                 default: 
                     // যদি কোন লিঙ্ক না মিলে, হোম পেজে পাঠিয়ে দিন
