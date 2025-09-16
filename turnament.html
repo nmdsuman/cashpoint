@@ -610,12 +610,12 @@
                 <button id="open-create-post-modal" class="w-full bg-blue-600 text-white font-semibold py-3 rounded-lg hover:bg-blue-700 transition mb-4">
                     <i class="fas fa-plus-circle mr-2"></i>Create New Tournament
                 </button>
-                <div class="flex justify-center space-x-2 bg-slate-200 p-1 rounded-lg">
-                    <button data-filter="active" class="filter-btn flex-1 text-sm py-2 px-3 rounded-md transition text-gray-700 hover:bg-slate-300 active">Active</button>
-                    <button data-filter="inactive" class="filter-btn flex-1 text-sm py-2 px-3 rounded-md transition text-gray-700 hover:bg-slate-300">Inactive</button>
-                    <button data-filter="complete" class="filter-btn flex-1 text-sm py-2 px-3 rounded-md transition text-gray-700 hover:bg-slate-300">Complete</button>
-                    <button data-filter="prizes_distributed" class="filter-btn flex-1 text-sm py-2 px-3 rounded-md transition text-gray-700 hover:bg-slate-300">Distributed</button>
-                    <button data-filter="all" class="filter-btn flex-1 text-sm py-2 px-3 rounded-md transition text-gray-700 hover:bg-slate-300">All</button>
+                <div class="flex justify-center gap-1 bg-slate-200 p-1 rounded-full">
+                    <button data-filter="active" class="filter-btn flex-1 text-sm py-2 px-4 rounded-full transition text-gray-700 hover:bg-slate-300 active">Active</button>
+                    <button data-filter="inactive" class="filter-btn flex-1 text-sm py-2 px-4 rounded-full transition text-gray-700 hover:bg-slate-300">Inactive</button>
+                    <button data-filter="complete" class="filter-btn flex-1 text-sm py-2 px-4 rounded-full transition text-gray-700 hover:bg-slate-300">Complete</button>
+                    <button data-filter="prizes_distributed" class="filter-btn flex-1 text-sm py-2 px-4 rounded-full transition text-gray-700 hover:bg-slate-300">Distributed</button>
+                    <button data-filter="all" class="filter-btn flex-1 text-sm py-2 px-4 rounded-full transition text-gray-700 hover:bg-slate-300">All</button>
                 </div>
             `;
             document.getElementById('open-create-post-modal').onclick = openCreatePostModal;
