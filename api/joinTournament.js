@@ -11,6 +11,16 @@ if (!admin.apps.length) {
 }
 const db = admin.firestore();
 
+// Generate a 9-character transaction ID (same style as other APIs)
+function generateTransactionId() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let result = '';
+  for (let i = 0; i < 9; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method Not Allowed' });
@@ -112,6 +122,20 @@ export default async function handler(req, res) {
 
       // Deduct balance and add participant
       tx.update(userRef, { balance: balance - fee });
+
+      // Add user transaction entry for tournament join
+      const userTxRef = userRef.collection('transactions').doc();
+      tx.set(userTxRef, {
+        type: 'tournament_join',
+        amount: fee,
+        charge: 0,
+        description: `Joined tournament ${cd.contestName ? cd.contestName : postId}`,
+        status: 'completed',
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        transactionId: generateTransactionId(),
+        metadata: { postId, contestName: cd.contestName || null }
+      });
+
       tx.set(participantRef, {
         userId: uid,
         idValue: String(idValue),
