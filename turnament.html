@@ -252,12 +252,21 @@
             };
         }
 
-        // --- Navigation handler for Tournament Admin ---
+        // --- Dynamic header button: Tournament Admin <-> User-t ---
         const btnTournamentAdmin = document.getElementById('btn-tournament-admin');
         if (btnTournamentAdmin) {
-            btnTournamentAdmin.onclick = () => {
-                window.location.href = '/admin-t';
-            };
+            const currentPath = window.location.pathname;
+            if (currentPath === '/admin-t') {
+                btnTournamentAdmin.textContent = 'User-t';
+                btnTournamentAdmin.onclick = () => {
+                    window.location.href = '/turnament';
+                };
+            } else {
+                btnTournamentAdmin.textContent = 'Tournament Admin';
+                btnTournamentAdmin.onclick = () => {
+                    window.location.href = '/admin-t';
+                };
+            }
         }
 
         // Clicking balance area switches to user CashPoint app
