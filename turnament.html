@@ -58,7 +58,7 @@
         <div id="message-box" class="hidden absolute top-5 left-1/2 -translate-x-1/2 z-[110] px-4 py-2 rounded-full text-sm text-white shadow-lg" role="alert">
             <span id="message-text"></span>
         </div>
-
+        
         <div id="auth-view" class="w-full h-full flex flex-col justify-center p-6"></div>
 
         <div id="app-view" class="hidden w-full h-full flex flex-col">
@@ -68,7 +68,7 @@
                     <h1 id="welcome-message" class="text-lg font-bold text-gray-800">ব্যবহারকারী</h1>
                 </div>
                 <div class="flex items-center space-x-4">
-                    <div class="text-right">
+                    <div id="wallet-area" class="text-right cursor-pointer select-none" title="CashPoint User এ যান">
                          <p class="text-xs text-gray-500">ব্যালেন্স</p>
                          <p id="wallet-balance" class="font-bold text-green-600">৳০.০০</p>
                     </div>
@@ -125,7 +125,7 @@
 
         // Countdown Timer Globals
         let countdownInterval = null;
-
+        
         // UI Elements
         const loadingEl = document.getElementById('loading');
         const authViewEl = document.getElementById('auth-view');
@@ -133,6 +133,12 @@
         const postsContainerEl = document.getElementById('posts-container');
         const adminPostSectionEl = document.getElementById('admin-post-section');
         const modalContainerEl = document.getElementById('modal-container');
+        // Role switch elements
+        const roleSwitchEl = document.getElementById('role-switch');
+        const btnUserApp = document.getElementById('btn-user-app');
+        const btnAdminPanel = document.getElementById('btn-admin-panel');
+        const logoutBtn = document.getElementById('logout-btn');
+        const walletArea = document.getElementById('wallet-area');
 
         // Helper Functions
         const showMessage = (text, type = 'info') => {
@@ -170,7 +176,7 @@
                 }
             };
         };
-
+        
         const copyToClipboard = (text) => {
             navigator.clipboard.writeText(text).then(() => {
                 showMessage('কপি করা হয়েছে!', 'success');
@@ -193,15 +199,20 @@
                     if (userData) {
                         document.getElementById('welcome-message').textContent = userData.fullName || 'ব্যবহারকারী';
                         document.getElementById('wallet-balance').textContent = `৳${(userData.balance || 0).toFixed(2)}`;
+                        // Show role switch for all authenticated users
+                        roleSwitchEl.classList.remove('hidden');
+                        // Admin-specific visibility
                         if (userData.isAdmin === true) {
                             adminPostSectionEl.classList.remove('hidden');
                             renderAdminControls();
+                            btnAdminPanel.classList.remove('hidden');
                         } else {
                             adminPostSectionEl.classList.add('hidden');
+                            btnAdminPanel.classList.add('hidden');
                         }
                     }
                 });
-
+                
                 await listenForPosts();
                 loadingEl.classList.add('hidden');
 
@@ -213,9 +224,44 @@
                 appViewEl.classList.add('hidden');
                 renderAuthForm();
                 loadingEl.classList.add('hidden');
+                // Hide role switch when logged out
+                roleSwitchEl.classList.add('hidden');
+                btnAdminPanel.classList.add('hidden');
             }
         });
 
+        // --- Navigation handlers for role switch ---
+        if (btnUserApp) {
+            btnUserApp.onclick = () => {
+                // Go to CashPoint user app (index.html SPA home)
+                window.location.href = '/';
+            };
+        }
+        if (btnAdminPanel) {
+            btnAdminPanel.onclick = () => {
+                // Go to CashPoint admin panel route handled by index.html router
+                window.location.href = '/admin';
+            };
+        }
+
+        // Clicking balance area switches to user CashPoint app
+        if (walletArea) {
+            walletArea.onclick = () => {
+                window.location.href = '/';
+            };
+        }
+
+        // --- Logout handler ---
+        if (logoutBtn) {
+            logoutBtn.onclick = async () => {
+                try {
+                    await signOut(auth);
+                } catch (e) {
+                    showMessage('লগআউট করতে সমস্যা হয়েছে', 'error');
+                }
+            };
+        }
+        
         const renderAuthForm = (isLogin = true) => {
             authViewEl.innerHTML = `
                 <h1 class="text-3xl font-bold text-center text-gray-800 mb-2">স্বাগতম!</h1>
@@ -293,12 +339,12 @@
                     const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
                     const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
                     const seconds = Math.floor((distance % (1000 * 60)) / 1000);
-
+                    
                     let countdownText = '';
                     if (days > 0) countdownText += `${days}দি `;
                     if (hours > 0 || days > 0) countdownText += `${hours}ঘন্টা `;
                     countdownText += `${minutes}মি ${seconds}সে`;
-
+                    
                     el.textContent = countdownText;
                 });
             }, 1000);
@@ -338,7 +384,7 @@
                 } else {
                     postElements.forEach(el => postsContainerEl.appendChild(el));
                 }
-
+                
                 startCountdownManager();
             }, (error) => {
                 console.error("Error listening for posts:", error);
@@ -350,19 +396,19 @@
         const createPostElement = async (post, currentUserRole) => {
             const postElement = document.createElement('div');
             postElement.id = `post-${post.id}`;
-
+            
             const contestDetails = JSON.parse(post.contestDetails);
             const startTime = post.startTime ? post.startTime.toDate() : new Date(contestDetails.startTime);
 
             const participantsRef = collection(db, 'artifacts', appId, 'public', 'data', 'posts', post.id, 'participants');
             const participantsSnapshot = await getDocs(participantsRef);
             const participantsCount = participantsSnapshot.size;
-
+            
             const participantDoc = await getDoc(doc(participantsRef, currentUser.uid));
             const hasJoined = participantDoc.exists();
 
             const isFull = participantsCount >= contestDetails.maxPlayers;
-
+            
             let statusColorClass = 'border-blue-500';
             if (post.status === 'inactive') statusColorClass = 'border-gray-400';
             if (post.status === 'complete' || post.status === 'prizes_distributed') statusColorClass = 'border-green-500';
@@ -381,7 +427,7 @@
             } else {
                  prizeListHTML = '<span><i class="fas fa-trophy w-4 mr-1 text-yellow-500"></i>পুরস্কার ঘোষণা করা হয়নি</span>';
             }
-
+            
             let actionSectionHTML = '';
 
             if (currentUserRole === 'user') {
@@ -531,7 +577,7 @@
                 loadingEl.classList.add('hidden');
             }
         };
-
+        
         // --- Admin Functions ---
         const renderAdminControls = () => {
              adminPostSectionEl.innerHTML = `
@@ -615,14 +661,14 @@
             prizeField.querySelector('.remove-prize-btn').onclick = () => prizeField.remove();
             container.appendChild(prizeField);
         };
-
+        
         const handleSaveDraft = (modalSelector) => {
             const form = document.querySelector(`${modalSelector} form`);
             if (!form) return;
             const formData = new FormData(form);
             const draftData = {};
             const prizes = [];
-
+            
             for(let [key, value] of formData.entries()) {
                 if(key.startsWith('prize_position_')) {
                     const index = key.split('_')[2];
@@ -633,7 +679,7 @@
                 }
             }
             draftData.prizes = prizes;
-
+            
             localStorage.setItem('tournamentDraft', JSON.stringify(draftData));
             showMessage('ড্রাফট সফলভাবে সেভ হয়েছে!', 'success');
         };
@@ -664,10 +710,10 @@
             } else {
                 addPrizeField('', '', modalSelector);
             }
-
+            
             showMessage('ড্রাফট সফলভাবে লোড হয়েছে।', 'success');
         };
-
+        
         const handleContestPost = async (e) => {
             e.preventDefault();
             const formData = new FormData(e.target);
@@ -702,7 +748,7 @@
                 });
                 showMessage("টুর্নামেন্ট সফলভাবে পোস্ট করা হয়েছে!", 'success');
                 document.getElementById('createPostModal').querySelector('.close-button').click();
-
+                
             } catch (error) {
                 showMessage(error.message, 'error');
             } finally {
@@ -771,7 +817,7 @@
                 loadingEl.classList.add('hidden');
             }
         };
-
+        
         const handleSaveDistribution = async (postId) => {
             const prizeInputs = document.querySelectorAll('.prize-input');
             const pendingPrizes = {};
@@ -798,7 +844,7 @@
         const handleConfirmDistribution = async (postId) => {
             const prizeInputs = document.querySelectorAll('.prize-input');
             const winners = [];
-
+            
             for (const input of prizeInputs) {
                 const amount = parseFloat(input.value);
                 if (amount > 0) {
@@ -809,14 +855,14 @@
             if (winners.length === 0) {
                 return showMessage('অনুগ্রহ করে অন্তত একজন বিজয়ীর পুরস্কার নির্ধারণ করুন।', 'error');
             }
-
+            
             const participantsRef = collection(db, 'artifacts', appId, 'public', 'data', 'posts', postId, 'participants');
             const participantsSnapshot = await getDocs(participantsRef);
             const participantsData = {};
             participantsSnapshot.forEach(doc => {
                 participantsData[doc.id] = doc.data();
             });
-
+            
             const detailedWinners = winners.map(winner => {
                 const participant = participantsData[winner.userId] || {};
                 return {
@@ -827,7 +873,7 @@
             });
 
             detailedWinners.sort((a, b) => b.amount - a.amount);
-
+            
             let previewHTML = '';
             detailedWinners.forEach(winner => {
                 previewHTML += `
@@ -863,14 +909,14 @@
             };
             document.getElementById('admin-auth-form').onsubmit = (e) => handleFinalDistribution(e, postId, winners);
         };
-
+        
         const handleFinalDistribution = async (e, postId, winners) => {
             e.preventDefault();
             const password = e.target['admin-password'].value;
             if (!password) return showMessage('পাসওয়ার্ড দিন।', 'error');
 
             loadingEl.classList.remove('hidden');
-
+            
             try {
                 const user = auth.currentUser;
                 if (!user) throw new Error('প্রথমে লগইন করুন।');
@@ -904,14 +950,14 @@
                 loadingEl.classList.add('hidden');
             }
         };
-
+        
         const editPostModal = async (postId) => {
             const postDoc = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'posts', postId));
             if (!postDoc.exists()) return showMessage('পোস্ট খুঁজে পাওয়া যায়নি!', 'error');
 
             const postData = postDoc.data();
             const contestDetails = JSON.parse(postData.contestDetails);
-
+            
             let prizeFieldsHTML = '';
             (contestDetails.prizes || []).forEach((prize, index) => {
                 prizeFieldsHTML += `
@@ -921,7 +967,7 @@
                         <button type="button" class="remove-prize-btn ${index === 0 ? 'hidden' : ''} bg-red-500 text-white w-8 h-8 rounded-full flex-shrink-0">&times;</button>
                     </div>`;
             });
-
+            
             const startTimeForInput = postData.startTime ? new Date(postData.startTime.toDate().getTime() - (new Date().getTimezoneOffset() * 60000)).toISOString().slice(0, -8) : contestDetails.startTime;
 
             const modalContent = `
