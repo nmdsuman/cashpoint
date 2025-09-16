@@ -918,10 +918,24 @@
                     const trxIdP = document.createElement('p');
                     trxIdP.className = 'text-xs text-gray-500';
                     trxIdP.textContent = `TrxID: ${tx.transactionId || 'N/A'}`;
+                    // Short email line depending on direction
+                    const emailLineP = document.createElement('p');
+                    emailLineP.className = 'text-xs text-gray-500';
+                    let emailLine = '';
+                    if (tx.type === 'receive' && tx.senderEmail) {
+                        emailLine = `From: ${tx.senderEmail}`;
+                    } else if (tx.type === 'send' && tx.recipientEmail) {
+                        emailLine = `To: ${tx.recipientEmail}`;
+                    }
+                    if (emailLine) emailLineP.textContent = emailLine;
                     const statusP = document.createElement('p');
                     statusP.className = `text-xs font-semibold ${statusColorClass}`;
                     statusP.textContent = statusText;
-                    infoDiv.append(titleP, trxIdP, statusP);
+                    if (emailLine) {
+                        infoDiv.append(titleP, trxIdP, emailLineP, statusP);
+                    } else {
+                        infoDiv.append(titleP, trxIdP, statusP);
+                    }
 
                     const amountDiv = document.createElement('div');
                     amountDiv.className = 'text-right';
@@ -990,6 +1004,8 @@
                 { label: 'বিস্তারিত:', value: tx.description },
                 { label: 'সময়:', value: `${time}, ${dateStr}` },
                 { label: 'চার্জ:', value: `৳ ${(tx.charge || 0).toFixed(2)}` },
+                { label: 'প্রেরকের ইমেইল:', value: tx.senderEmail || '-' },
+                { label: 'প্রাপকের ইমেইল:', value: tx.recipientEmail || '-' },
                 { label: 'ট্রানজেকশন আইডি:', value: tx.transactionId || 'N/A', isMono: true }
             ];
             
