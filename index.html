@@ -764,6 +764,27 @@
                             title = 'ট্রান্সফার';
                             firstChar = 'T';
                             break;
+                        case 'tournament_join':
+                            iconClass = 'fa-trophy';
+                            colorClass = 'text-red-500';
+                            amountPrefix = '- ৳';
+                            title = 'টুর্নামেন্ট ফি';
+                            firstChar = 'T';
+                            break;
+                        case 'tournament_prize':
+                            iconClass = 'fa-trophy';
+                            colorClass = 'text-green-500';
+                            amountPrefix = '+ ৳';
+                            title = 'টুর্নামেন্ট প্রাইজ';
+                            firstChar = 'T';
+                            break;
+                        default:
+                            iconClass = 'fa-receipt';
+                            colorClass = 'text-gray-600';
+                            amountPrefix = (Number(tx.amount) >= 0 ? '+ ৳' : '- ৳');
+                            title = 'লেনদেন';
+                            firstChar = 'T';
+                            break;
                     }
                     
                     const date = tx.timestamp ? tx.timestamp.toDate() : new Date();
