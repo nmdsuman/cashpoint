@@ -11,6 +11,16 @@ if (!admin.apps.length) {
 }
 const db = admin.firestore();
 
+// Generate a 9-character transaction ID (consistent with other APIs)
+function generateTransactionId() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let result = '';
+  for (let i = 0; i < 9; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method Not Allowed' });
@@ -62,6 +72,13 @@ export default async function handler(req, res) {
         throw new Error('এই টুর্নামেন্টের পুরস্কার ইতিমধ্যে বিতরণ করা হয়েছে।');
       }
 
+      // Extract contest name for transaction descriptions if available
+      let contestName = null;
+      try {
+        const cd = typeof postData.contestDetails === 'string' ? JSON.parse(postData.contestDetails) : (postData.contestDetails || {});
+        contestName = cd.contestName || cd.gameName || null;
+      } catch {}
+
       for (const w of sanitized) {
         const userRef = db.doc(`artifacts/${appId}/users/${w.userId}`);
         const userSnap = await tx.get(userRef);
@@ -71,6 +88,19 @@ export default async function handler(req, res) {
         }
         const currentBalance = Number(userSnap.data()?.balance || 0);
         tx.update(userRef, { balance: currentBalance + w.amount });
+
+        // Create a transaction record for the prize credit
+        const userTxRef = userRef.collection('transactions').doc();
+        tx.set(userTxRef, {
+          type: 'tournament_prize',
+          amount: w.amount,
+          charge: 0,
+          description: `Tournament prize${contestName ? ` - ${contestName}` : ''}`,
+          status: 'received',
+          timestamp: admin.firestore.FieldValue.serverTimestamp(),
+          transactionId: generateTransactionId(),
+          metadata: { postId, contestName }
+        });
       }
 
       tx.update(postRef, {
