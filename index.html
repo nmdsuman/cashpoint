@@ -574,6 +574,95 @@
         // ****** পিন সেটআপ ফাংশন শেষ ******
 
 
+        // পিন ভুলে গেলে (Forgot PIN) ফর্ম এবং হ্যান্ডলার
+        function renderForgotPinForm() {
+            const email = auth.currentUser?.email || '';
+            mainContent.innerHTML = `
+                <div class="flex flex-col h-full p-4 space-y-6">
+                    <h2 class="text-2xl font-bold text-cashpoint-pink mb-4">পিন রিসেট</h2>
+                    <p class="text-sm text-gray-600">আপনার অ্যাকাউন্ট পাসওয়ার্ড দিয়ে যাচাই করে নতুন পিন সেট করুন।</p>
+                    <form id="forgot-pin-form" class="w-full space-y-4">
+                        <input type="email" id="reset-email-input" value="${email}" placeholder="ইমেইল" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cashpoint-pink">
+                        <input type="password" id="account-password-input" placeholder="অ্যাকাউন্ট পাসওয়ার্ড" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cashpoint-pink">
+                        <input type="password" id="new-pin-reset-input" placeholder="নতুন ৪-সংখ্যার পিন" maxlength="4" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cashpoint-pink">
+                        <input type="password" id="confirm-pin-reset-input" placeholder="পিন কনফার্ম করুন" maxlength="4" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cashpoint-pink">
+                        <button type="submit" class="w-full py-3 bg-cashpoint-pink text-white font-bold rounded-xl shadow-lg">পিন রিসেট করুন</button>
+                    </form>
+                    <button id="back-to-pin-options-btn" class="w-full py-3 bg-gray-400 text-white font-bold rounded-xl shadow-lg">ফিরে যান</button>
+                </div>
+            `;
+
+            document.getElementById('forgot-pin-form').addEventListener('submit', handleForgotPinReset);
+            document.getElementById('back-to-pin-options-btn').addEventListener('click', () => navigateTo('/pin-setup'));
+        }
+
+        async function handleForgotPinReset(event) {
+            event.preventDefault();
+            const email = document.getElementById('reset-email-input').value.trim();
+            const password = document.getElementById('account-password-input').value;
+            const newPin = document.getElementById('new-pin-reset-input').value;
+            const confirmPin = document.getElementById('confirm-pin-reset-input').value;
+
+            if (newPin.length !== 4 || confirmPin.length !== 4) {
+                showMessage('পিন অবশ্যই ৪ সংখ্যার হতে হবে।');
+                return;
+            }
+            if (newPin !== confirmPin) {
+                showMessage('নতুন পিন এবং কনফার্ম পিন মিলছে না।');
+                return;
+            }
+
+            try {
+                showLoading(true);
+                const user = auth.currentUser;
+                if (!user) {
+                    showMessage('আপনি সাইন ইন করেননি।');
+                    navigateTo('/login');
+                    return;
+                }
+
+                // Dynamically import reauth helpers (avoid changing top-level imports)
+                const { EmailAuthProvider, reauthenticateWithCredential, reauthenticateWithPopup } = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js');
+
+                let reauthed = false;
+                const providerIds = (user.providerData || []).map(p => p.providerId);
+                if (providerIds.includes('password')) {
+                    if (!email || !password) {
+                        showMessage('ইমেইল ও পাসওয়ার্ড দিন।');
+                        showLoading(false);
+                        return;
+                    }
+                    const credential = EmailAuthProvider.credential(email, password);
+                    await reauthenticateWithCredential(user, credential);
+                    reauthed = true;
+                } else {
+                    await reauthenticateWithPopup(user, provider);
+                    reauthed = true;
+                }
+
+                if (!reauthed) {
+                    showMessage('পুনরায় যাচাই ব্যর্থ হয়েছে।');
+                    return;
+                }
+
+                const token = await auth.currentUser.getIdToken(true);
+                const response = await fetch('/api/resetPin', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ newPin })
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.message || 'পিন রিসেট ব্যর্থ।');
+                showMessage(result.message || 'পিন রিসেট সফল হয়েছে।');
+                navigateTo('/pin-setup');
+            } catch (error) {
+                console.error('Forgot PIN reset error:', error);
+                showMessage(error.message || 'পিন রিসেট ব্যর্থ হয়েছে।');
+            } finally {
+                showLoading(false);
+            }
+        }
+        
         // [SECURE] Render the main dashboard
         function renderDashboard(profileData) {
             const userName = profileData.name || 'ব্যবহারকারী';
