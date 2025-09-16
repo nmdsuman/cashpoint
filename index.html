@@ -328,11 +328,7 @@
             const userInitial = userName ? userName.charAt(0).toUpperCase() : ' ';
 
             sidebarUserName.textContent = userName;
-            const parts = [];
-            if (userEmail) parts.push(`ইমেইল: ${userEmail}`);
-            if (userDob) parts.push(`জন্ম: ${userDob}`);
-            if (userMobile) parts.push(`মোবাইল: ${userMobile}`);
-            sidebarUserMobile.textContent = parts.join(' • ');
+            sidebarUserMobile.textContent = '';
             sidebarInitial.textContent = userInitial;
         }
 
@@ -689,12 +685,8 @@
             const headerUserNameSpan = document.getElementById('header-user-name');
             if (headerUserNameSpan) {
                 headerUserNameSpan.textContent = userName;
-                const titleParts = [];
-                titleParts.push(`নাম: ${userName}`);
-                if (userEmail) titleParts.push(`ইমেইল: ${userEmail}`);
-                if (userDob) titleParts.push(`জন্মতারিখ: ${userDob}`);
-                if (userMobile) titleParts.push(`মোবাইল: ${userMobile}`);
-                headerUserNameSpan.title = titleParts.join('\n');
+                headerUserNameSpan.title = '';
+                headerUserNameSpan.onclick = () => navigateTo('/myprofile');
             }
 
             renderSidebar(profileData);
@@ -722,14 +714,6 @@
             nameH2.className = 'text-lg font-semibold text-gray-800';
             nameH2.textContent = userName;
 
-            const profileLine = document.createElement('p');
-            profileLine.className = 'text-xs text-gray-500';
-            const infoParts = [];
-            if (userEmail) infoParts.push(userEmail);
-            if (userDob) infoParts.push(userDob);
-            if (userMobile) infoParts.push(userMobile);
-            profileLine.textContent = infoParts.join(' • ');
-
             const idPara = document.createElement('p');
             idPara.className = 'text-sm text-gray-500 flex items-center';
             
@@ -742,7 +726,7 @@
             copyIcon.onclick = () => copyToClipboard(currentUser.uid);
 
             idPara.append(idSpan, copyIcon);
-            nameIdDiv.append(nameH2, profileLine, idPara);
+            nameIdDiv.append(nameH2, idPara);
             
             const trophyIcon = document.createElement('i');
             trophyIcon.className = 'fas fa-trophy text-2xl text-yellow-500';
@@ -1423,7 +1407,7 @@
             const recipientInfoDiv = document.createElement('div');
             recipientInfoDiv.className = 'flex items-center space-x-4 mb-6';
             const initialDiv = document.createElement('div');
-            initialDiv.className = 'w-12 h-12 rounded-full bg-cashpoint-pink flex items-center justify-center text-white text-xl font-bold';
+            initialDiv.className = 'w-12 h-12 rounded-full bg-cashpoint-pink text-white flex items-center justify-center text-xl font-bold';
             initialDiv.textContent = recipient.name.charAt(0).toUpperCase();
             const nameMobileDiv = document.createElement('div');
             nameMobileDiv.className = 'flex flex-col';
@@ -2539,7 +2523,6 @@
 
         const headerUserNameSpan = document.getElementById('header-user-name');
         if (headerUserNameSpan) {
-            headerUserNameSpan.textContent = '';
             headerUserNameSpan.onclick = () => navigateTo('/myprofile');
         }
     </script>
