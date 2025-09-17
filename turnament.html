@@ -626,12 +626,7 @@
                     <div>
                         <label class="block text-sm text-gray-700 mb-1">স্ক্রিনশট আপলোড করুন (ঐচ্ছিক)</label>
                         <input type="file" name="file" accept="image/*" class="w-full text-sm" />
-                        <p class="text-[11px] text-gray-500 mt-1">ইমেজ আপলোড করলে স্বয়ংক্রিয়ভাবে imgbb তে আপলোড হবে।</p>
-                    </div>
-                    <div>
-                        <label class="block text-sm text-gray-700 mb-1">স্ক্রিনশট ইমেজ লিংক (ঐচ্ছিক)</label>
-                        <input type="url" name="imageUrl" placeholder="https://example.com/proof.jpg" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                        <p class="text-[11px] text-gray-500 mt-1">ইমেজের সরাসরি লিংক দিন (যেমন: imgur, drive public link, ইত্যাদি)।</p>
+                        <p class="text-[11px] text-gray-500 mt-1">ইমেজ আপলোড করলে স্বয়ংক্রিয়ভাবে সংরক্ষণ হবে।</p>
                         <div id="proof-preview" class="mt-2 hidden">
                             <a href="#" target="_blank" class="block">
                                 <img id="proof-preview-img" src="" alt="proof" class="max-h-64 rounded-lg border object-contain w-full bg-white"/>
@@ -652,7 +647,6 @@
                     const form = document.getElementById('submitProofModal').querySelector('#proof-form');
                     if (d.note) form.note.value = d.note;
                     if (d.screenshotUrl) {
-                        form.imageUrl.value = d.screenshotUrl;
                         const preview = document.getElementById('proof-preview');
                         const img = document.getElementById('proof-preview-img');
                         img.src = d.screenshotUrl;
@@ -664,26 +658,6 @@
             } catch (e) {
                 console.warn('Failed to prefill proof:', e);
             }
-
-            // Live preview when user types/pastes url
-            const urlInput = document.getElementById('submitProofModal').querySelector('input[name="imageUrl"]');
-            urlInput.addEventListener('input', () => {
-                const val = urlInput.value.trim();
-                const preview = document.getElementById('proof-preview');
-                const img = document.getElementById('proof-preview-img');
-                if (val) {
-                    try {
-                        const u = new URL(val);
-                        img.src = u.toString();
-                        preview.querySelector('a').href = u.toString();
-                        preview.classList.remove('hidden');
-                    } catch {
-                        preview.classList.add('hidden');
-                    }
-                } else {
-                    preview.classList.add('hidden');
-                }
-            });
 
             document.getElementById('submitProofModal').querySelector('#proof-form').onsubmit = (e) => handleSubmitProof(e, postId);
         };
@@ -725,9 +699,8 @@
             e.preventDefault();
             const form = e.target;
             const note = (form.note?.value || '').trim();
-            const imageUrlRaw = (form.imageUrl?.value || '').trim();
             const file = form.file?.files?.[0] || null;
-            let screenshotUrl = null;
+            let screenshotUrl = undefined; // undefined => do not change existing url
             try {
                 loadingEl.classList.remove('hidden');
                 if (file) {
@@ -740,25 +713,19 @@
                         loadingEl.classList.add('hidden');
                         return;
                     }
-                } else if (imageUrlRaw) {
-                    // basic URL validation
-                    try {
-                        const u = new URL(imageUrlRaw);
-                        screenshotUrl = u.toString();
-                    } catch {
-                        showMessage('সঠিক ইমেজ লিংক দিন।', 'error');
-                        loadingEl.classList.add('hidden');
-                        return;
-                    }
                 }
                 const token = await currentUser.getIdToken();
+                const payload = { postId, note: note || null };
+                if (typeof screenshotUrl === 'string') {
+                    payload.screenshotUrl = screenshotUrl; // only send if new upload
+                }
                 const resp = await fetch('/api/joinTournament', {
                     method: 'PATCH',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${token}`
                     },
-                    body: JSON.stringify({ postId, note: note || null, screenshotUrl })
+                    body: JSON.stringify(payload)
                 });
                 const data = await resp.json();
                 if (!resp.ok) throw new Error(data.message || 'প্রুফ সাবমিট ব্যর্থ');
@@ -1057,37 +1024,27 @@
                         const hasProof = !!(player?.note) || !!(player?.screenshotUrl);
                         playersHTML += `
                             <div class="bg-slate-100 p-3 rounded-lg flex flex-col gap-2">
-                                <div class="flex justify-between items-center">
-                                    <div>
-                                        <p class="font-semibold">${player.fullName}</p>
-                                        <p class="text-xs text-gray-500">ID: ${player.idValue}</p>
-                                    </div>
-                                    <div class="flex items-center space-x-2">
-                                        <span class="font-semibold text-gray-600">৳</span>
-                                        <input type="number" min="0" value="${savedPrize}" data-userid="${doc.id}" 
-                                               class="prize-input w-24 px-2 py-1 border border-gray-300 rounded-md text-right" 
-                                               placeholder="_ _ _">
-                                    </div>
+                                <div>
+                                    <p class="font-semibold">${player.fullName}</p>
+                                    <p class="text-xs text-gray-500">ID: ${player.idValue}</p>
                                 </div>
-                                <div class="flex justify-end">
-                                    <button class="view-proof-btn text-xs px-3 py-1 rounded-md ${hasProof ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'bg-gray-300 text-gray-600 cursor-not-allowed'}" 
-                                            data-userid="${doc.id}"
-                                            data-fullname="${player.fullName || ''}"
-                                            data-idvalue="${player.idValue || ''}"
-                                            data-note="${(player.note || '').toString().replace(/"/g,'&quot;')}"
-                                            data-screenshoturl="${player.screenshotUrl || ''}"
-                                            ${hasProof ? '' : 'disabled'}>প্রুফ দেখুন</button>
+                                <div class="flex items-center space-x-2">
+                                    <span class="font-semibold text-gray-600">৳</span>
+                                    <input type="number" min="0" value="${savedPrize}" data-userid="${doc.id}" 
+                                           class="prize-input w-24 px-2 py-1 border border-gray-300 rounded-md text-right" 
+                                           placeholder="_ _ _">
                                 </div>
-                            </div>
-                        `;
+                            </div>`;
                     });
                     playersHTML += '</div>';
                 }
 
                 const modalContent = `
+                    <div class="space-y-3">
+                        ${playersHTML}
+                    </div>
                     <form id="prize-distribution-form" data-post-id="${postId}">
-                        <div class="max-h-[50vh] overflow-y-auto pr-2">${playersHTML}</div>
-                        <div class="mt-6 flex flex-col sm:flex-row gap-3">
+                        <div class="flex items-center space-x-2 mt-4">
                             <button type="button" id="save-progress-btn" class="w-full bg-blue-500 text-white font-semibold py-2 rounded-lg hover:bg-blue-600 transition">Save Progress</button>
                             <button type="button" id="confirm-distribute-btn" class="w-full bg-green-600 text-white font-semibold py-2 rounded-lg hover:bg-green-700 transition">Confirm & Distribute</button>
                         </div>
