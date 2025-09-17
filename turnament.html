@@ -483,6 +483,7 @@
                             <h4 class="font-bold text-blue-800 mb-2">আপনি জয়েন করেছেন!</h4>
                             <p class="font-semibold text-blue-800 flex justify-between items-center">রুম আইডি: <code class="bg-blue-200 text-blue-900 px-2 py-1 rounded">${contestDetails.roomId}</code> <i onclick="copyToClipboard('${contestDetails.roomId}')" class="fas fa-copy cursor-pointer text-gray-500 ml-2"></i></p>
                             <p class="font-semibold text-blue-800 flex justify-between items-center mt-1">পাসওয়ার্ড: <code class="bg-blue-200 text-blue-900 px-2 py-1 rounded">${contestDetails.roomPass}</code> <i onclick="copyToClipboard('${contestDetails.roomPass}')" class="fas fa-copy cursor-pointer text-gray-500 ml-2"></i></p>
+                            <button class="mt-3 w-full bg-indigo-600 text-white font-semibold py-2 rounded-lg hover:bg-indigo-700 transition submit-proof-btn">প্রুফ দিন (ঐচ্ছিক)</button>
                         </div>`;
                 } else if (isFull) {
                     actionSectionHTML = `<div class="mt-4"><button class="w-full py-2 bg-red-400 text-white font-semibold rounded-lg cursor-not-allowed" disabled>টুর্নামেন্ট পূর্ণ</button></div>`;
@@ -557,46 +558,10 @@
             if (postElement.querySelector('.join-btn')) {
                 postElement.querySelector('.join-btn').onclick = () => showJoinFormInline(post);
             }
+            if (postElement.querySelector('.submit-proof-btn')) {
+                postElement.querySelector('.submit-proof-btn').onclick = () => openProofModal(post.id);
+            }
             return postElement;
-        };
-
-        const showJoinFormInline = (post) => {
-            const contestDetails = JSON.parse(post.contestDetails);
-            const actionContainer = document.getElementById(`action-container-${post.id}`);
-            if (!actionContainer) return;
-
-            const originalButtonHTML = actionContainer.innerHTML;
-
-            const formHTML = `
-                <div class="space-y-2">
-                    <input type="text" id="user-id-input-${post.id}" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="আপনার ${contestDetails.requiredIdType} দিন">
-                    <textarea id="note-input-${post.id}" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" rows="2" placeholder="নোট (ঐচ্ছিক)"></textarea>
-                    <div>
-                        <label class="block text-sm text-gray-600 mb-1">স্ক্রিনশট (ঐচ্ছিক)</label>
-                        <input type="file" id="proof-file-${post.id}" accept="image/*" class="w-full text-sm" />
-                        <p class="text-[11px] text-gray-500 mt-1">শুধুমাত্র ছবি নির্বাচন করুন।</p>
-                    </div>
-                    <p class="text-xs text-center text-red-600">আপনার ওয়ালেট থেকে ৳${contestDetails.entryFee} কেটে নেওয়া হবে।</p>
-                    <div class="flex space-x-2">
-                        <button id="confirm-join-btn-${post.id}" class="w-full bg-green-600 text-white font-semibold py-2 rounded-lg hover:bg-green-700 transition">নিশ্চিত করুন</button>
-                        <button id="cancel-join-btn-${post.id}" class="w-full bg-gray-500 text-white font-semibold py-2 rounded-lg hover:bg-gray-600 transition">বাতিল</button>
-                    </div>
-                </div>
-            `;
-            actionContainer.innerHTML = formHTML;
-
-            document.getElementById(`confirm-join-btn-${post.id}`).onclick = () => {
-                const idValue = document.getElementById(`user-id-input-${post.id}`).value;
-                const noteValue = (document.getElementById(`note-input-${post.id}`)?.value || '').trim();
-                const fileInput = document.getElementById(`proof-file-${post.id}`);
-                const screenshotFile = fileInput && fileInput.files && fileInput.files[0] ? fileInput.files[0] : null;
-                handleJoinContest(post, idValue, noteValue, screenshotFile);
-            };
-
-            document.getElementById(`cancel-join-btn-${post.id}`).onclick = () => {
-                actionContainer.innerHTML = originalButtonHTML;
-                actionContainer.querySelector('.join-btn').onclick = () => showJoinFormInline(post);
-            };
         };
 
         const uploadProofImage = async (file, postId) => {
@@ -609,23 +574,41 @@
             return url;
         };
 
-        const handleJoinContest = async (post, idValue, noteValue = '', screenshotFile = null) => {
+        const showJoinFormInline = (post) => {
+            const contestDetails = JSON.parse(post.contestDetails);
+            const actionContainer = document.getElementById(`action-container-${post.id}`);
+            if (!actionContainer) return;
+
+            const originalButtonHTML = actionContainer.innerHTML;
+
+            const formHTML = `
+                <div class="space-y-2">
+                    <input type="text" id="user-id-input-${post.id}" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="আপনার ${contestDetails.requiredIdType} দিন">
+                    <p class="text-xs text-center text-red-600">আপনার ওয়ালেট থেকে ৳${contestDetails.entryFee} কেটে নেওয়া হবে।</p>
+                    <div class="flex space-x-2">
+                        <button id="confirm-join-btn-${post.id}" class="w-full bg-green-600 text-white font-semibold py-2 rounded-lg hover:bg-green-700 transition">নিশ্চিত করুন</button>
+                        <button id="cancel-join-btn-${post.id}" class="w-full bg-gray-500 text-white font-semibold py-2 rounded-lg hover:bg-gray-600 transition">বাতিল</button>
+                    </div>
+                </div>
+            `;
+            actionContainer.innerHTML = formHTML;
+
+            document.getElementById(`confirm-join-btn-${post.id}`).onclick = () => {
+                const idValue = document.getElementById(`user-id-input-${post.id}`).value;
+                handleJoinContest(post, idValue);
+            };
+
+            document.getElementById(`cancel-join-btn-${post.id}`).onclick = () => {
+                actionContainer.innerHTML = originalButtonHTML;
+                actionContainer.querySelector('.join-btn').onclick = () => showJoinFormInline(post);
+            };
+        };
+
+        const handleJoinContest = async (post, idValue) => {
             if (!idValue.trim()) return showMessage('অনুগ্রহ করে আপনার আইডি লিখুন।', 'error');
             const postId = post.id;
             try {
                 loadingEl.classList.remove('hidden');
-                // Upload screenshot first (optional)
-                let screenshotUrl = null;
-                if (screenshotFile) {
-                    try {
-                        screenshotUrl = await uploadProofImage(screenshotFile, postId);
-                    } catch (e) {
-                        console.error('Screenshot upload failed:', e);
-                        showMessage('স্ক্রিনশট আপলোড ব্যর্থ, পুনরায় চেষ্টা করুন বা স্ক্রিনশট ছাড়া যোগ দিন।', 'error');
-                        loadingEl.classList.add('hidden');
-                        return;
-                    }
-                }
                 const token = await currentUser.getIdToken();
                 const resp = await fetch('/api/joinTournament', {
                     method: 'POST',
@@ -633,27 +616,69 @@
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${token}`
                     },
-                    body: JSON.stringify({ postId, idValue, note: noteValue || null, screenshotUrl })
+                    body: JSON.stringify({ postId, idValue })
                 });
                 const data = await resp.json();
                 if (!resp.ok) throw new Error(data.message || 'Join failed');
                 showMessage('সফলভাবে যোগদান করেছেন!', 'success');
-                const oldElement = document.getElementById(`post-${postId}`);
-                if (oldElement) {
-                    const userDocSnap = await getDoc(doc(db, 'artifacts', appId, 'users', currentUser.uid));
-                    const isAdmin = userDocSnap.data()?.isAdmin === true;
-                    const currentUserRole = isAdmin ? 'admin' : 'user';
-                    const newElement = await createPostElement(post, currentUserRole);
-                    oldElement.replaceWith(newElement);
-                    startCountdownManager();
-                }
             } catch (error) {
                 showMessage(error.message, 'error');
             } finally {
                 loadingEl.classList.add('hidden');
             }
         };
-        
+
+        const openProofModal = (postId) => {
+            const content = `
+                <form id="proof-form" class="space-y-3">
+                    <div>
+                        <label class="block text-sm text-gray-700 mb-1">নোট (ঐচ্ছিক)</label>
+                        <textarea name="note" rows="3" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="যদি প্রয়োজন মনে করেন, এখানে লিখুন"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-700 mb-1">স্ক্রিনশট (ঐচ্ছিক)</label>
+                        <input type="file" name="file" accept="image/*" class="w-full text-sm" />
+                        <p class="text-[11px] text-gray-500 mt-1">শুধুমাত্র ছবি, সর্বোচ্চ 5MB প্রস্তাবিত।</p>
+                    </div>
+                    <button type="submit" class="w-full bg-indigo-600 text-white font-semibold py-2 rounded-lg hover:bg-indigo-700">সাবমিট</button>
+                </form>
+            `;
+            renderModal('submitProofModal', 'প্রুফ জমা দিন', content);
+            document.getElementById('submitProofModal').querySelector('#proof-form').onsubmit = (e) => handleSubmitProof(e, postId);
+        };
+
+        const handleSubmitProof = async (e, postId) => {
+            e.preventDefault();
+            const form = e.target;
+            const note = (form.note?.value || '').trim();
+            const file = form.file?.files?.[0] || null;
+            try {
+                loadingEl.classList.remove('hidden');
+                let screenshotUrl = null;
+                if (file) {
+                    screenshotUrl = await uploadProofImage(file, postId);
+                }
+                const token = await currentUser.getIdToken();
+                const resp = await fetch('/api/joinTournament', {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ postId, note: note || null, screenshotUrl })
+                });
+                const data = await resp.json();
+                if (!resp.ok) throw new Error(data.message || 'প্রুফ সাবমিট ব্যর্থ');
+                showMessage('প্রুফ জমা হয়েছে!', 'success');
+                document.querySelector('#submitProofModal .close-button')?.click();
+            } catch (err) {
+                console.error(err);
+                showMessage(err.message || 'প্রুফ সাবমিট ব্যর্থ', 'error');
+            } finally {
+                loadingEl.classList.add('hidden');
+            }
+        };
+
         // --- Admin Functions ---
         const renderAdminControls = () => {
              adminPostSectionEl.innerHTML = `
@@ -711,7 +736,7 @@
                         </div>
                         <button type="button" id="add-prize-btn" class="mt-2 text-sm text-blue-600 hover:underline font-semibold">+ আরও পুরস্কার যোগ করুন</button>
                     </div>
-                    <button type="submit" class="w-full bg-orange-600 text-white font-semibold py-2 rounded-lg hover:bg-orange-700 transition mt-4">পোস্ট করুন</button>
+                    <button type="submit" class="w-full bg-orange-600 text-white font-semibold py-2 rounded-lg hover:bg-orange-700 transition">পোস্ট করুন</button>
                     
                     <div class="flex items-center space-x-2 mt-2">
                         <button type="button" id="save-draft-btn" class="w-full bg-gray-500 text-white font-semibold py-2 rounded-lg hover:bg-gray-600 transition">ড্রাফট সেভ করুন</button>
@@ -795,7 +820,7 @@
                         const title = d.name || 'Untitled Draft';
                         listHTML += `
                             <div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg border">
-                                <div class="flex-1">
+                                <div>
                                     <p class="font-semibold">${title}</p>
                                     <p class="text-xs text-gray-500">${d.data?.contestName || ''} · ${d.data?.gameName || ''}</p>
                                 </div>
@@ -935,19 +960,32 @@
                     participantsSnapshot.forEach(doc => {
                         const player = doc.data();
                         const savedPrize = pendingPrizes[doc.id] || '';
+                        const hasProof = !!(player?.note) || !!(player?.screenshotUrl);
                         playersHTML += `
-                            <div class="bg-slate-100 p-3 rounded-lg flex justify-between items-center">
-                                <div>
-                                    <p class="font-semibold">${player.fullName}</p>
-                                    <p class="text-xs text-gray-500">ID: ${player.idValue}</p>
+                            <div class="bg-slate-100 p-3 rounded-lg flex flex-col gap-2">
+                                <div class="flex justify-between items-center">
+                                    <div>
+                                        <p class="font-semibold">${player.fullName}</p>
+                                        <p class="text-xs text-gray-500">ID: ${player.idValue}</p>
+                                    </div>
+                                    <div class="flex items-center space-x-2">
+                                        <span class="font-semibold text-gray-600">৳</span>
+                                        <input type="number" min="0" value="${savedPrize}" data-userid="${doc.id}" 
+                                               class="prize-input w-24 px-2 py-1 border border-gray-300 rounded-md text-right" 
+                                               placeholder="_ _ _">
+                                    </div>
                                 </div>
-                                <div class="flex items-center space-x-2">
-                                    <span class="font-semibold text-gray-600">৳</span>
-                                    <input type="number" min="0" value="${savedPrize}" data-userid="${doc.id}" 
-                                           class="prize-input w-24 px-2 py-1 border border-gray-300 rounded-md text-right" 
-                                           placeholder="_ _ _">
+                                <div class="flex justify-end">
+                                    <button class="view-proof-btn text-xs px-3 py-1 rounded-md ${hasProof ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'bg-gray-300 text-gray-600 cursor-not-allowed'}" 
+                                            data-userid="${doc.id}"
+                                            data-fullname="${player.fullName || ''}"
+                                            data-idvalue="${player.idValue || ''}"
+                                            data-note="${(player.note || '').toString().replace(/"/g, '&quot;')}"
+                                            data-screenshoturl="${player.screenshotUrl || ''}"
+                                            ${hasProof ? '' : 'disabled'}>প্রুফ দেখুন</button>
                                 </div>
-                            </div>`;
+                            </div>
+                        `;
                     });
                     playersHTML += '</div>';
                 }
@@ -966,6 +1004,18 @@
 
                 document.getElementById('save-progress-btn').onclick = () => handleSaveDistribution(postId);
                 document.getElementById('confirm-distribute-btn').onclick = () => handleConfirmDistribution(postId);
+
+                // Wire up view-proof buttons
+                document.querySelectorAll('#managePrizesModal .view-proof-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const el = e.currentTarget;
+                        const name = el.getAttribute('data-fullname') || 'Unknown';
+                        const idValue = el.getAttribute('data-idvalue') || '';
+                        const note = el.getAttribute('data-note') || '';
+                        const url = el.getAttribute('data-screenshoturl') || '';
+                        openPlayerProofModal(name, idValue, note, url);
+                    });
+                });
 
             } catch (error) {
                 showMessage(error.message, 'error');
@@ -1212,6 +1262,24 @@
                     loadingEl.classList.add('hidden');
                 }
             }
+        };
+
+        const openPlayerProofModal = (fullName, idValue, note, screenshotUrl) => {
+            let body = '';
+            body += `<div class="space-y-3">`;
+            body += `<div><p class="text-sm text-gray-600">প্লেয়ার</p><p class="font-semibold">${fullName}</p><p class="text-xs text-gray-500">ID: ${idValue}</p></div>`;
+            body += `<div><p class="text-sm text-gray-600 mb-1">নোট</p><div class="p-3 rounded-lg bg-slate-50 border">${note ? note.replace(/\n/g,'<br/>') : '<span class=\'text-gray-400\'>কোনো নোট নেই</span>'}</div></div>`;
+            body += `<div><p class="text-sm text-gray-600 mb-1">স্ক্রিনশট</p>`;
+            if (screenshotUrl) {
+                body += `<a href="${screenshotUrl}" target="_blank" class="block">
+                           <img src="${screenshotUrl}" alt="proof" class="max-h-72 rounded-lg border object-contain w-full bg-white"/>
+                         </a>`;
+            } else {
+                body += `<div class="p-3 rounded-lg bg-slate-50 border text-gray-400">কোনো স্ক্রিনশট নেই</div>`;
+            }
+            body += `</div>`;
+            body += `</div>`;
+            renderModal('playerProofModal', 'প্লেয়ারের প্রুফ', body);
         };
 
         // Initial Load Event Listener
