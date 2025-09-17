@@ -36,7 +36,7 @@ export default async function handler(req, res) {
     const decoded = await admin.auth().verifyIdToken(token);
     const uid = decoded.uid;
 
-    const { postId, idValue } = req.body || {};
+    const { postId, idValue, note, screenshotUrl } = req.body || {};
     if (!postId || !idValue || typeof idValue !== 'string') {
       return res.status(400).json({ message: 'postId এবং idValue সঠিকভাবে দিন।' });
     }
@@ -142,6 +142,8 @@ export default async function handler(req, res) {
         fullName: u.fullName || u.name || 'User',
         joinedAt: admin.firestore.FieldValue.serverTimestamp(),
         entryFee: fee,
+        note: typeof note === 'string' && note.trim() ? note.trim() : null,
+        screenshotUrl: typeof screenshotUrl === 'string' && screenshotUrl.trim() ? screenshotUrl.trim() : null,
       });
     });
 
