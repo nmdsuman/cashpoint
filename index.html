@@ -234,6 +234,7 @@
         let unsubscribeFromProfile = null;
         let unsubscribeFromRequests = null;
         let unsubscribeFromTransfers = null;
+        let unsubscribeFromConfig = null;
         let recipientData = {}; // To store recipient info for the transaction
         let isAdmin = false;
 
@@ -252,6 +253,39 @@
                 nagad: ''
             }
         };
+
+        // Subscribe to Admin Settings (charges, reserve, payment numbers) from Firestore
+        function subscribeToAppConfig() {
+            const configDocRef = doc(db, `artifacts/${appId}/admin_config/settings`);
+            if (unsubscribeFromConfig) unsubscribeFromConfig();
+            unsubscribeFromConfig = onSnapshot(configDocRef, (docSnap) => {
+                const data = docSnap.exists() ? docSnap.data() : {};
+                // Deep-merge with defaults so missing fields don't become undefined
+                appConfig = {
+                    charges: {
+                        send: {
+                            percentage: (data.charges && data.charges.send && typeof data.charges.send.percentage === 'number') ? data.charges.send.percentage : 0,
+                            fixed: (data.charges && data.charges.send && typeof data.charges.send.fixed === 'number') ? data.charges.send.fixed : 0,
+                        },
+                        transfer: {
+                            percentage: (data.charges && data.charges.transfer && typeof data.charges.transfer.percentage === 'number') ? data.charges.transfer.percentage : 0,
+                            fixed: (data.charges && data.charges.transfer && typeof data.charges.transfer.fixed === 'number') ? data.charges.transfer.fixed : 0,
+                        }
+                    },
+                    reserve: {
+                        bkash: (data.reserve && typeof data.reserve.bkash === 'number') ? data.reserve.bkash : 0,
+                        nagad: (data.reserve && typeof data.reserve.nagad === 'number') ? data.reserve.nagad : 0,
+                    },
+                    paymentNumbers: {
+                        bkash: (data.paymentNumbers && typeof data.paymentNumbers.bkash === 'string') ? data.paymentNumbers.bkash : '',
+                        nagad: (data.paymentNumbers && typeof data.paymentNumbers.nagad === 'string') ? data.paymentNumbers.nagad : '',
+                    }
+                };
+            }, (error) => {
+                console.error('Error loading app config:', error);
+                // Keep defaults on error
+            });
+        }
 
 
         // UI Elements
@@ -2355,6 +2389,9 @@
                     router();
                 });
 
+                // Start listening to admin settings when user is signed in
+                subscribeToAppConfig();
+
             } else {
                 bottomNav.classList.add('hidden');
                 currentUser = null;
@@ -2362,6 +2399,7 @@
                 if (unsubscribeFromProfile) unsubscribeFromProfile();
                 if (unsubscribeFromRequests) unsubscribeFromRequests();
                 if (unsubscribeFromTransfers) unsubscribeFromTransfers();
+                if (unsubscribeFromConfig) unsubscribeFromConfig();
                 if (tAdminMenuBtn) tAdminMenuBtn.classList.add('hidden');
                 
                 headerUserName.textContent = '';
