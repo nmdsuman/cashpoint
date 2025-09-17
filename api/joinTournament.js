@@ -22,7 +22,14 @@ function generateTransactionId() {
 }
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
+  // Basic CORS headers and OPTIONS preflight support
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, PATCH, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  if (req.method !== 'POST' && req.method !== 'PATCH') {
     return res.status(405).json({ message: 'Method Not Allowed' });
   }
 
@@ -37,9 +44,6 @@ export default async function handler(req, res) {
     const uid = decoded.uid;
 
     const { postId, idValue, note, screenshotUrl } = req.body || {};
-    if (!postId || !idValue || typeof idValue !== 'string') {
-      return res.status(400).json({ message: 'postId এবং idValue সঠিকভাবে দিন।' });
-    }
 
     const appId = process.env.APP_ID;
     if (!appId) {
@@ -49,6 +53,54 @@ export default async function handler(req, res) {
     const userRef = db.doc(`artifacts/${appId}/users/${uid}`);
     const postRef = db.doc(`artifacts/${appId}/public/data/posts/${postId}`);
     const participantRef = db.doc(`artifacts/${appId}/public/data/posts/${postId}/participants/${uid}`);
+
+    // PATCH: submit proof (note/screenshot) after joining
+    if (req.method === 'PATCH') {
+      if (!postId) {
+        return res.status(400).json({ message: 'postId দিন।' });
+      }
+      const [postSnap, participantSnap] = await Promise.all([
+        postRef.get(),
+        participantRef.get(),
+      ]);
+      if (!postSnap.exists) {
+        return res.status(404).json({ message: 'টুর্নামেন্ট পাওয়া যায়নি।' });
+      }
+      if (!participantSnap.exists) {
+        return res.status(400).json({ message: 'আপনি এই টুর্নামেন্টে জয়েন করেননি।' });
+      }
+      const payload = {};
+      if (typeof note === 'string') payload.note = note.trim() ? note.trim() : null;
+      if (typeof screenshotUrl === 'string') payload.screenshotUrl = screenshotUrl.trim() ? screenshotUrl.trim() : null;
+      payload.updatedAt = admin.firestore.FieldValue.serverTimestamp();
+      await participantRef.set(payload, { merge: true });
+      return res.status(200).json({ success: true, message: 'প্রুফ সংরক্ষণ করা হয়েছে।' });
+    }
+
+    // POST fallback: submit proof (when frontend cannot use PATCH)
+    if (req.method === 'POST' && postId && !idValue && (typeof note === 'string' || typeof screenshotUrl === 'string')) {
+      const [postSnap, participantSnap] = await Promise.all([
+        postRef.get(),
+        participantRef.get(),
+      ]);
+      if (!postSnap.exists) {
+        return res.status(404).json({ message: 'টুর্নামেন্ট পাওয়া যায়নি।' });
+      }
+      if (!participantSnap.exists) {
+        return res.status(400).json({ message: 'আপনি এই টুর্নামেন্টে জয়েন করেননি।' });
+      }
+      const payload = {};
+      if (typeof note === 'string') payload.note = note.trim() ? note.trim() : null;
+      if (typeof screenshotUrl === 'string') payload.screenshotUrl = screenshotUrl.trim() ? screenshotUrl.trim() : null;
+      payload.updatedAt = admin.firestore.FieldValue.serverTimestamp();
+      await participantRef.set(payload, { merge: true });
+      return res.status(200).json({ success: true, message: 'প্রুফ সংরক্ষণ করা হয়েছে।' });
+    }
+
+    // POST: join tournament
+    if (!postId || !idValue || typeof idValue !== 'string') {
+      return res.status(400).json({ message: 'postId এবং idValue সঠিকভাবে দিন।' });
+    }
 
     // Read required docs
     const [userSnap, postSnap, existingParticipantSnap, participantsSnap] = await Promise.all([
@@ -142,8 +194,7 @@ export default async function handler(req, res) {
         fullName: u.fullName || u.name || 'User',
         joinedAt: admin.firestore.FieldValue.serverTimestamp(),
         entryFee: fee,
-        note: typeof note === 'string' && note.trim() ? note.trim() : null,
-        screenshotUrl: typeof screenshotUrl === 'string' && screenshotUrl.trim() ? screenshotUrl.trim() : null,
+        // proof fields are set via PATCH/POST proof paths
       });
     });
 
