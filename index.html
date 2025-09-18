@@ -647,48 +647,125 @@
                 snap.forEach(docSnap => {
                     const tx = docSnap.data();
 
-                    // Type -> icon, color and amount sign (align with Statement)
-                    let icon = 'fa-receipt';
-                    let color = 'text-gray-600';
-                    let amountPrefix = '';
-                    let title = 'লেনদেন';
+                    // Mirror statement mapping
+                    let iconClass, colorClass, amountPrefix, title = '';
+                    let firstChar = 'T';
+                    let statusText, statusColorClass;
+
+                    switch (tx.status) {
+                        case 'pending': statusText = 'অপেক্ষমাণ'; statusColorClass = 'text-orange-500'; break;
+                        case 'rejected': statusText = 'ব্যর্থ'; statusColorClass = 'text-red-500'; break;
+                        default: statusText = 'সফল'; statusColorClass = 'text-green-500'; break;
+                    }
+
                     switch (tx.type) {
-                        case 'deposit': icon = 'fa-plus'; color = 'text-green-500'; amountPrefix = '+ ৳'; title = 'অ্যাড মানি'; break;
-                        case 'send': icon = 'fa-paper-plane'; color = 'text-red-500'; amountPrefix = '- ৳'; title = 'সেন্ড মানি'; break;
-                        case 'receive': icon = 'fa-inbox'; color = 'text-green-500'; amountPrefix = '+ ৳'; title = 'রিসিভ মানি'; break;
-                        case 'transfer': icon = 'fa-exchange-alt'; color = 'text-red-500'; amountPrefix = '- ৳'; title = 'ট্রান্সফার'; break;
-                        case 'tournament_join': icon = 'fa-trophy'; color = 'text-red-500'; amountPrefix = '- ৳'; title = 'টুর্নামেন্ট ফি'; break;
-                        case 'tournament_prize': icon = 'fa-trophy'; color = 'text-green-500'; amountPrefix = '+ ৳'; title = 'টুর্নামেন্ট প্রাইজ'; break;
+                        case 'deposit':
+                            iconClass = 'fa-plus';
+                            colorClass = 'text-green-500';
+                            amountPrefix = '+ ৳';
+                            title = 'অ্যাড মানি';
+                            firstChar = (tx.description || 'D').charAt(0);
+                            break;
+                        case 'send':
+                            iconClass = 'fa-paper-plane';
+                            colorClass = 'text-red-500';
+                            amountPrefix = '- ৳';
+                            title = 'সেন্ড মানি';
+                            firstChar = (tx.description && tx.description.split(' ')[2]) ? tx.description.split(' ')[2].charAt(0) : 'S';
+                            break;
+                        case 'receive':
+                            iconClass = 'fa-inbox';
+                            colorClass = 'text-green-500';
+                            amountPrefix = '+ ৳';
+                            title = 'রিসিভ মানি';
+                            firstChar = (tx.description && tx.description.split(' ')[2]) ? tx.description.split(' ')[2].charAt(0) : 'R';
+                            break;
+                        case 'transfer':
+                            iconClass = 'fa-exchange-alt';
+                            colorClass = 'text-red-500';
+                            amountPrefix = '- ৳';
+                            title = 'ট্রান্সফার';
+                            firstChar = 'T';
+                            break;
+                        case 'tournament_join':
+                            iconClass = 'fa-trophy';
+                            colorClass = 'text-red-500';
+                            amountPrefix = '- ৳';
+                            title = 'টুর্নামেন্ট ফি';
+                            firstChar = 'T';
+                            break;
+                        case 'tournament_prize':
+                            iconClass = 'fa-trophy';
+                            colorClass = 'text-green-500';
+                            amountPrefix = '+ ৳';
+                            title = 'টুর্নামেন্ট প্রাইজ';
+                            firstChar = 'T';
+                            break;
+                        default:
+                            iconClass = 'fa-receipt';
+                            colorClass = 'text-gray-600';
+                            amountPrefix = (Number(tx.amount) >= 0 ? '+ ৳' : '- ৳');
+                            title = 'লেনদেন';
+                            firstChar = 'T';
+                            break;
                     }
 
                     const date = tx.timestamp ? tx.timestamp.toDate() : new Date();
                     const time = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-                    const dateStr = date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' });
+                    const dateStr = date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' });
 
-                    const row = document.createElement('div');
-                    row.className = 'flex items-center p-3 bg-white rounded-lg shadow-sm';
+                    const txEl = document.createElement('div');
+                    txEl.className = 'flex items-center p-3 bg-white rounded-lg shadow-sm';
 
-                    const left = document.createElement('div');
-                    left.className = `w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center ${color} font-bold mr-4`;
-                    left.innerHTML = `<i class="fas ${icon}"></i>`;
+                    const initialDiv = document.createElement('div');
+                    initialDiv.className = 'w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-cashpoint-pink font-bold mr-4';
+                    initialDiv.textContent = firstChar.toUpperCase();
 
-                    const info = document.createElement('div');
-                    info.className = 'flex-grow';
+                    const infoDiv = document.createElement('div');
+                    infoDiv.className = 'flex-grow';
                     const titleP = document.createElement('p');
                     titleP.className = 'font-semibold text-gray-800';
                     titleP.textContent = title;
-                    const timeP = document.createElement('p');
-                    timeP.className = 'text-xs text-gray-500';
-                    timeP.textContent = `${time}, ${dateStr}`;
-                    info.append(titleP, timeP);
+                    const trxIdP = document.createElement('p');
+                    trxIdP.className = 'text-xs text-gray-500';
+                    trxIdP.textContent = `TrxID: ${tx.transactionId || 'N/A'}`;
+                    const emailLineP = document.createElement('p');
+                    emailLineP.className = 'text-xs text-gray-500';
+                    let emailLine = '';
+                    if (tx.type === 'receive' && tx.senderEmail) {
+                        emailLine = `From: ${tx.senderEmail}`;
+                    } else if (tx.type === 'send' && tx.recipientEmail) {
+                        emailLine = `To: ${tx.recipientEmail}`;
+                    }
+                    if (emailLine) emailLineP.textContent = emailLine;
+                    const statusP = document.createElement('p');
+                    statusP.className = `text-xs font-semibold ${statusColorClass}`;
+                    statusP.textContent = statusText;
+                    if (emailLine) {
+                        infoDiv.append(titleP, trxIdP, emailLineP, statusP);
+                    } else {
+                        infoDiv.append(titleP, trxIdP, statusP);
+                    }
 
-                    const amt = document.createElement('div');
-                    amt.className = 'text-right font-bold';
+                    const amountDiv = document.createElement('div');
+                    amountDiv.className = 'text-right';
+                    const amountP = document.createElement('p');
+                    amountP.className = `font-bold ${colorClass}`;
                     const amount = Number(tx.amount) || 0;
-                    amt.textContent = `${amountPrefix}${Math.abs(amount).toFixed(2)}`;
+                    amountP.textContent = `${amountPrefix}${Math.abs(amount).toFixed(2)}`;
+                    const timeP = document.createElement('p');
+                    timeP.className = 'text-xs text-gray-400';
+                    timeP.textContent = `${time} ${dateStr}`;
+                    amountDiv.append(amountP, timeP);
 
-                    row.append(left, info, amt);
-                    listEl.appendChild(row);
+                    const chevronDiv = document.createElement('div');
+                    chevronDiv.className = 'ml-3 text-gray-400';
+                    const chevronI = document.createElement('i');
+                    chevronI.className = 'fas fa-chevron-right';
+                    chevronDiv.appendChild(chevronI);
+
+                    txEl.append(initialDiv, infoDiv, amountDiv, chevronDiv);
+                    listEl.appendChild(txEl);
                 });
             } catch (e) {
                 console.error(e);
