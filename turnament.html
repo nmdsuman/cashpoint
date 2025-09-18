@@ -181,6 +181,31 @@
         const logoutBtn = document.getElementById('logout-btn');
         const walletArea = document.getElementById('wallet-area');
 
+        // Generic modal renderer used across admin flows (players/proof/auth)
+        const renderModal = (id, title, bodyHtml) => {
+            if (!modalContainerEl) return;
+            modalContainerEl.innerHTML = `
+                <div id="${id}" class="modal fixed inset-0 z-[130] items-center justify-center">
+                    <div class="absolute inset-0 bg-black/50" data-close="1"></div>
+                    <div class="modal-content relative bg-white rounded-2xl w-11/12 max-w-sm p-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <h3 class="text-lg font-bold text-gray-800">${title}</h3>
+                            <button class="close-button w-9 h-9 rounded-full hover:bg-gray-100"><i class="fas fa-times"></i></button>
+                        </div>
+                        <div class="modal-body">${bodyHtml}</div>
+                    </div>
+                </div>`;
+            const modalEl = document.getElementById(id);
+            // open with transition
+            requestAnimationFrame(() => modalEl.classList.add('show'));
+            const close = () => {
+                modalEl.classList.remove('show');
+                setTimeout(() => { modalContainerEl.innerHTML = ''; }, 250);
+            };
+            modalEl.querySelector('[data-close]')?.addEventListener('click', close);
+            modalEl.querySelector('.close-button')?.addEventListener('click', close);
+        };
+
         // Helper Functions
         const showMessage = (text, type = 'info') => {
             const messageBox = document.getElementById('message-box');
