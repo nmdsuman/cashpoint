@@ -5,6 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>CashPoint - সাইন আপ</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .bg-cashpoint-pink { background-color: #E2136E; }
+    .text-cashpoint-pink { color: #E2136E; }
+    .gradient-bg { background: linear-gradient(135deg, #FF69B4, #E2136E); }
+    .form-input { background-color: #EDF2FE; /* soft blue like screenshot */ }
+  </style>
 </head>
 <body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
   <div class="w-full max-w-sm bg-white rounded-2xl shadow-xl overflow-hidden">
@@ -17,20 +23,20 @@
       <form id="signup-form" class="space-y-4">
         <div>
           <label for="name" class="block text-sm text-gray-600 mb-1">নাম</label>
-          <input id="name" type="text" placeholder="আপনার নাম" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500" required />
+          <input id="name" type="text" placeholder="আপনার নাম" class="w-full p-3 form-input rounded-xl focus:outline-none focus:ring-2 focus:ring-cashpoint-pink" required />
         </div>
         <div>
           <label for="email" class="block text-sm text-gray-600 mb-1">ইমেইল</label>
-          <input id="email" type="email" placeholder="you@example.com" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500" required />
+          <input id="email" type="email" placeholder="you@example.com" class="w-full p-3 form-input rounded-xl focus:outline-none focus:ring-2 focus:ring-cashpoint-pink" required />
         </div>
         <div>
           <label for="password" class="block text-sm text-gray-600 mb-1">পাসওয়ার্ড</label>
-          <input id="password" type="password" placeholder="********" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500" required />
+          <input id="password" type="password" placeholder="********" class="w-full p-3 form-input rounded-xl focus:outline-none focus:ring-2 focus:ring-cashpoint-pink" required />
         </div>
-        <button type="submit" class="w-full py-3 bg-pink-600 hover:bg-pink-700 text-white font-bold rounded-xl transition">অ্যাকাউন্ট তৈরি করুন</button>
+        <button type="submit" class="w-full py-3 bg-cashpoint-pink text-white font-bold rounded-xl transition">অ্যাকাউন্ট তৈরি করুন</button>
       </form>
       <div class="mt-4 text-center text-sm">
-        <a href="/login" class="text-pink-600 hover:underline">ইতিমধ্যেই অ্যাকাউন্ট আছে? লগইন করুন</a>
+        <a href="/login" class="text-cashpoint-pink hover:underline">ইতিমধ্যেই অ্যাকাউন্ট আছে? লগইন করুন</a>
       </div>
       <p id="msg" class="mt-4 text-center text-sm text-gray-600"></p>
     </div>

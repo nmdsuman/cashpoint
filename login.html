@@ -5,25 +5,48 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>CashPoint - লগইন</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .bg-cashpoint-pink { background-color: #E2136E; }
+    .text-cashpoint-pink { color: #E2136E; }
+    .gradient-bg { background: linear-gradient(135deg, #FF69B4, #E2136E); }
+    .form-input { background-color: #EDF2FE; }
+  </style>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 </head>
-<body class="bg-gray-100 min-h-screen flex items-center justify-center">
-  <div class="w-full max-w-sm bg-white rounded-2xl shadow p-6">
-    <h1 class="text-2xl font-bold text-center mb-6">লগইন</h1>
-    <form id="login-form" class="space-y-4">
-      <input id="email" type="email" placeholder="ইমেইল" class="w-full p-3 border rounded-xl" required />
-      <input id="password" type="password" placeholder="পাসওয়ার্ড" class="w-full p-3 border rounded-xl" required />
-      <button type="submit" class="w-full py-3 bg-pink-600 hover:bg-pink-700 text-white font-bold rounded-xl">সাইন ইন</button>
-    </form>
-    <div class="flex items-center justify-between mt-4 text-sm">
-      <a href="/forgot-password" class="text-blue-600">পাসওয়ার্ড ভুলে গেছেন?</a>
-      <a href="/signup" class="text-blue-600">অ্যাকাউন্ট তৈরি করুন</a>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+  <div class="w-full max-w-sm bg-white rounded-2xl shadow-xl overflow-hidden">
+    <div class="gradient-bg text-white py-6 px-6 text-center">
+      <img src="https://placehold.co/64x64/E2136E/FFFFFF?text=CP" alt="CashPoint" class="w-16 h-16 rounded-full mx-auto mb-2 bg-white"/>
+      <h1 class="text-xl font-bold">CashPoint</h1>
+      <p class="text-white/90 text-sm">আপনার অ্যাকাউন্টে লগইন করুন</p>
     </div>
-    <button id="google-btn" class="mt-4 w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl flex items-center justify-center gap-2">
-      <i class="fab fa-google"></i>
-      Google দিয়ে সাইন ইন
-    </button>
-    <p id="msg" class="mt-4 text-center text-sm text-gray-600"></p>
+    <div class="p-6">
+      <form id="login-form" class="space-y-4">
+        <div>
+          <label for="email" class="block text-sm text-gray-600 mb-1">ইমেইল</label>
+          <input id="email" type="email" placeholder="you@example.com" class="w-full p-3 form-input border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cashpoint-pink" required />
+        </div>
+        <div>
+          <label for="password" class="block text-sm text-gray-600 mb-1">পাসওয়ার্ড</label>
+          <input id="password" type="password" placeholder="********" class="w-full p-3 form-input border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cashpoint-pink" required />
+        </div>
+        <button type="submit" class="w-full py-3 bg-cashpoint-pink text-white font-bold rounded-xl transition">সাইন ইন</button>
+      </form>
+      <div class="flex items-center justify-between mt-4 text-sm">
+        <a href="/forgot-password" class="text-cashpoint-pink hover:underline">পাসওয়ার্ড ভুলে গেছেন?</a>
+        <a href="/signup" class="text-cashpoint-pink hover:underline">অ্যাকাউন্ট তৈরি করুন</a>
+      </div>
+      <div class="my-4 flex items-center gap-3">
+        <div class="h-px bg-gray-200 flex-1"></div>
+        <span class="text-xs text-gray-400">অথবা</span>
+        <div class="h-px bg-gray-200 flex-1"></div>
+      </div>
+      <button id="google-btn" class="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl flex items-center justify-center gap-2">
+        <i class="fab fa-google"></i>
+        Google দিয়ে সাইন ইন
+      </button>
+      <p id="msg" class="mt-4 text-center text-sm text-gray-600"></p>
+    </div>
   </div>
 
   <script type="module">
