@@ -155,6 +155,7 @@
         // Global App ID for Firestore paths (fixed to shared project id)
         const appId = "cashpoint-f8b51";
         let currentUser = null;
+        let currentIsAdmin = false; // global admin flag for guarding admin-only features
         let currentAdminFilter = 'active'; // Default filter for admin
         let postsUnsubscribe = null; // To detach listener on filter change
 
@@ -246,6 +247,7 @@
         };
 
         const loadTournamentAggregates = async () => {
+            if (!currentIsAdmin) return; // guard: admin only
             try {
                 const el = ensureAggSection();
                 if (!el) return;
@@ -255,18 +257,17 @@
                 if (joinEl) joinEl.textContent = '…';
                 if (prizeEl) prizeEl.textContent = '…';
                 if (profitEl) profitEl.textContent = '…';
+                // Get totals from secure API (Admin SDK)
+                const token = await auth.currentUser.getIdToken();
+                const resp = await fetch('/api/getTournamentTotals', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await resp.json();
+                if (!resp.ok) throw new Error(data.message || 'Failed to load totals');
 
-                // Sum using collectionGroup over users/*/transactions
-                const txGroup = collectionGroup(db, 'transactions');
-                const [joinsSnap, prizesSnap] = await Promise.all([
-                    getDocs(query(txGroup, where('type', '==', 'tournament_join'))),
-                    getDocs(query(txGroup, where('type', '==', 'tournament_prize')))
-                ]);
-                let joinSum = 0;
-                joinsSnap.forEach(d => { const a = Number(d.data()?.amount || 0); if (Number.isFinite(a)) joinSum += a; });
-                let prizeSum = 0;
-                prizesSnap.forEach(d => { const a = Number(d.data()?.amount || 0); if (Number.isFinite(a)) prizeSum += a; });
-                const profit = joinSum - prizeSum;
+                const joinSum = Number(data.join || 0);
+                const prizeSum = Number(data.prize || 0);
+                const profit = Number(data.profit || (joinSum - prizeSum));
 
                 const fmt = (n) => `৳${n.toFixed(2)}`;
                 if (joinEl) joinEl.textContent = fmt(joinSum);
@@ -274,6 +275,7 @@
                 if (profitEl) { profitEl.textContent = fmt(profit); profitEl.classList.toggle('text-green-700', profit >= 0); profitEl.classList.toggle('text-red-700', profit < 0); }
             } catch (e) {
                 console.error('Failed to load aggregates', e);
+                // Only show error for admins
                 showMessage('Totals লোড করতে সমস্যা হয়েছে।', 'error');
             }
         };
@@ -316,6 +318,7 @@
                         if (sliderWalletBalanceEl) sliderWalletBalanceEl.textContent = `৳${(userData.balance || 0).toFixed(2)}`;
                         // Header admin buttons visible only for admins
                         const isAdminUser = hasClaimAdmin || (userData.isAdmin === true);
+                        currentIsAdmin = !!isAdminUser;
                         if (isAdminUser) {
                             roleSwitchEl.classList.remove('hidden');
                         } else {
@@ -326,11 +329,13 @@
                         if (isAdminUser && isAdminRoute) {
                             adminPostSectionEl.classList.remove('hidden');
                             renderAdminControls();
-                            // Show and refresh admin aggregates in slider
+                            // Show and refresh admin aggregates in slider (admin only)
                             ensureAggSection();
                             loadTournamentAggregates();
                         } else {
                             adminPostSectionEl.classList.add('hidden');
+                            // Hide aggregates UI if user is not admin
+                            document.getElementById('slider-agg')?.remove();
                         }
                         // If user opened the dedicated tournament admin route, enforce access
                         if (window.location.pathname === '/admin-t') {
@@ -399,8 +404,11 @@
             if (!walletSlider) return;
             walletSlider.classList.remove('translate-x-full');
             walletSlider.classList.add('translate-x-0');
-            // Refresh aggregates whenever slider opens
-            loadTournamentAggregates();
+            // Admin-only: refresh aggregates whenever slider opens
+            if (currentIsAdmin) {
+                ensureAggSection();
+                loadTournamentAggregates();
+            }
         };
         const closeWalletSlider = () => {
             if (!walletSlider) return;
