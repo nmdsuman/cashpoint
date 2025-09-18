@@ -810,16 +810,16 @@
                 gridDiv.appendChild(actionDiv);
             });
             
-            // Pending requests section
+            // Pending requests section (styled)
             const pendingSectionDiv = document.createElement('div');
             pendingSectionDiv.id = 'pending-requests-section';
-            pendingSectionDiv.className = 'w-full space-y-4';
+            pendingSectionDiv.className = 'w-full mt-6 pt-4 border-t border-gray-200 space-y-3';
             const pendingH3 = document.createElement('h3');
-            pendingH3.className = 'text-xl font-bold text-gray-800 border-b pb-2';
+            pendingH3.className = 'text-lg sm:text-xl font-bold text-gray-800 border-b border-gray-200 pb-2';
             pendingH3.textContent = 'অপেক্ষমাণ অনুরোধ';
             const requestsListDiv = document.createElement('div');
             requestsListDiv.id = 'requests-list';
-            requestsListDiv.className = 'space-y-3';
+            requestsListDiv.className = 'space-y-2';
             const noRequestsPara = document.createElement('p');
             noRequestsPara.className = 'text-center text-gray-500';
             noRequestsPara.textContent = 'কোনো অনুরোধ নেই।';
