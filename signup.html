@@ -100,7 +100,7 @@
           isAdmin: false,
           pinHash: 0
         }, { merge: true });
-        window.location.replace('/');
+        window.location.replace('/create-pin');
       } catch (err) {
         msg('সাইন আপ ব্যর্থ হয়েছে। আবার চেষ্টা করুন।');
       }
@@ -126,7 +126,7 @@
             pinHash: 0
           }, { merge: true });
         }
-        window.location.replace('/');
+        window.location.replace('/create-pin');
       } catch (err) {
         msg('Google সাইন ইন ব্যর্থ হয়েছে।');
       }
