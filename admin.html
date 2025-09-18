@@ -300,15 +300,7 @@
             console.error('Global error:', e.error || e.message || e);
         });
 
-        function showMessage(text, duration = 3000) {
-            messageBox.textContent = text;
-            messageBox.classList.remove('scale-0');
-            messageBox.classList.add('scale-100');
-            setTimeout(() => {
-                messageBox.classList.remove('scale-100');
-                messageBox.classList.add('scale-0');
-            }, duration);
-        }
+        // (Removed older duplicate showMessage to avoid redeclaration)
 
         function showLoading(show) {
             if (show) loadingOverlay.classList.remove('hidden');
