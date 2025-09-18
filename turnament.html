@@ -1014,6 +1014,7 @@
 
                 const postData = postDoc.data();
                 const pendingPrizes = postData.pendingPrizes || {};
+                const pendingNotes = postData.pendingNotes || {};
 
                 let playersHTML = '';
                 if (!participantsSnapshot.empty) {
@@ -1021,6 +1022,7 @@
                     participantsSnapshot.forEach(doc => {
                         const player = doc.data();
                         const savedPrize = pendingPrizes[doc.id] || '';
+                        const savedNote = pendingNotes[doc.id] || '';
                         const hasProof = !!(player?.note) || !!(player?.screenshotUrl);
                         playersHTML += `
                             <div class="bg-slate-100 p-3 rounded-lg flex flex-col gap-2">
@@ -1035,17 +1037,23 @@
                                             ${hasProof ? '' : 'disabled title="কোনো প্রুফ নেই"'}
                                             data-fullname="${player.fullName || ''}"
                                             data-idvalue="${player.idValue || ''}"
-                                            data-note="${(player.note || '').toString().replace(/`/g,'\`').replace(/"/g,'&quot;')}"
+                                            data-note="${(player.note || '').toString().replace(/`/g,'\`').replace(/\"/g,'&quot;')}"
                                             data-screenshoturl="${player.screenshotUrl || ''}">
                                             প্রুফ দেখুন
                                         </button>
                                     </div>
                                 </div>
-                                <div class="flex items-center space-x-2">
-                                    <span class="font-semibold text-gray-600">৳</span>
-                                    <input type="number" min="0" value="${savedPrize}" data-userid="${doc.id}" 
-                                           class="prize-input w-24 px-2 py-1 border border-gray-300 rounded-md text-right" 
-                                           placeholder="_ _ _">
+                                <div class="grid grid-cols-5 gap-2 items-center">
+                                    <div class="col-span-2 flex items-center space-x-2">
+                                        <span class="font-semibold text-gray-600">৳</span>
+                                        <input type="number" min="0" value="${savedPrize}" data-userid="${doc.id}" 
+                                               class="prize-input w-full px-2 py-1 border border-gray-300 rounded-md text-right" 
+                                               placeholder="_ _ _">
+                                    </div>
+                                    <div class="col-span-3">
+                                        <input type="text" maxlength="120" value="${(savedNote || '').toString().replace(/`/g,'\`').replace(/\"/g,'&quot;')}" data-userid="${doc.id}"
+                                               class="note-input w-full px-2 py-1 border border-gray-300 rounded-md text-sm" placeholder="অ্যাডমিন নোট (ঐচ্ছিক)">
+                                    </div>
                                 </div>
                             </div>`;
                     });
@@ -1089,7 +1097,9 @@
         
         const handleSaveDistribution = async (postId) => {
             const prizeInputs = document.querySelectorAll('.prize-input');
+            const noteInputs = document.querySelectorAll('.note-input');
             const pendingPrizes = {};
+            const pendingNotes = {};
             prizeInputs.forEach(input => {
                 const userId = input.dataset.userid;
                 const amount = parseFloat(input.value);
@@ -1097,12 +1107,19 @@
                     pendingPrizes[userId] = amount;
                 }
             });
+            noteInputs.forEach(input => {
+                const userId = input.dataset.userid;
+                const note = (input.value || '').trim();
+                if (userId && note) {
+                    pendingNotes[userId] = note;
+                }
+            });
 
             loadingEl.classList.remove('hidden');
             try {
                 const postRef = doc(db, 'artifacts', appId, 'public', 'data', 'posts', postId);
-                await updateDoc(postRef, { pendingPrizes });
-                showMessage('আপনার পুরস্কারের তালিকা সফলভাবে সেভ হয়েছে!', 'success');
+                await updateDoc(postRef, { pendingPrizes, pendingNotes });
+                showMessage('আপনার পুরস্কার ও নোট সফলভাবে সেভ হয়েছে!', 'success');
             } catch (error) {
                 showMessage(error.message, 'error');
             } finally {
@@ -1112,12 +1129,15 @@
 
         const handleConfirmDistribution = async (postId) => {
             const prizeInputs = document.querySelectorAll('.prize-input');
+            const noteInputs = document.querySelectorAll('.note-input');
+            const noteMap = {};
+            noteInputs.forEach(n => { noteMap[n.dataset.userid] = (n.value || '').trim(); });
             const winners = [];
             
             for (const input of prizeInputs) {
                 const amount = parseFloat(input.value);
                 if (amount > 0) {
-                    winners.push({ userId: input.dataset.userid, amount: amount });
+                    winners.push({ userId: input.dataset.userid, amount: amount, adminNote: noteMap[input.dataset.userid] || '' });
                 }
             }
 
@@ -1144,14 +1164,21 @@
             detailedWinners.sort((a, b) => b.amount - a.amount);
             
             let previewHTML = '';
-            detailedWinners.forEach(winner => {
+            const medalColors = ['bg-yellow-100 text-yellow-800','bg-gray-200 text-gray-800','bg-orange-100 text-orange-800'];
+            detailedWinners.forEach((winner, idx) => {
+                const pos = idx + 1;
+                const badgeClass = medalColors[idx] || 'bg-blue-100 text-blue-800';
                 previewHTML += `
-                    <div class="flex justify-between items-center py-2 px-3 rounded-lg bg-gray-50">
-                        <div>
-                            <span class="font-medium text-gray-800">${winner.fullName}</span>
-                            <p class="text-xs text-gray-500">${winner.idValue}</p>
+                    <div class="flex items-start justify-between gap-3 py-3 px-3 rounded-lg bg-white border">
+                        <div class="flex items-start gap-3">
+                            <span class="inline-block px-2 py-0.5 text-xs font-semibold rounded ${badgeClass}">${pos}${pos===1?'st':pos===2?'nd':pos===3?'rd':'th'}</span>
+                            <div>
+                                <div class="font-semibold text-gray-900">${winner.fullName}</div>
+                                <div class="text-xs text-gray-500">${winner.idValue}</div>
+                                ${winner.adminNote ? `<div class="mt-1 text-xs text-gray-700"><span class="font-medium">নোট:</span> ${winner.adminNote.replace(/</g,'&lt;')}</div>` : ''}
+                            </div>
                         </div>
-                        <span class="font-bold text-green-600">৳${winner.amount}</span>
+                        <div class="font-bold text-green-700 text-base">৳${winner.amount}</div>
                     </div>
                 `;
             });
@@ -1159,11 +1186,11 @@
             const modalContent = `
                 <div class="mb-4">
                     <h3 class="font-bold text-lg mb-2">পুরস্কার বিতরণের চূড়ান্ত প্রিভিউ</h3>
-                    <p class="text-sm text-gray-500 mb-4">নিচের তালিকাটি সর্বোচ্চ পুরষ্কার থেকে সর্বনিম্ন অনুযায়ী সাজানো হয়েছে।</p>
+                    <p class="text-sm text-gray-500 mb-4">নিচের তালিকাটি সর্বোচ্চ পুরস্কার থেকে সর্বনিম্ন অনুযায়ী সাজানো এবং প্রতিটি বিজয়ীর পাশে আপনার নোট যুক্ত আছে।</p>
                     <div class="space-y-2 max-h-[40vh] overflow-y-auto no-scrollbar">${previewHTML}</div>
                 </div>
-                <form id="admin-auth-form">
-                    <p class="mb-4 text-center text-gray-700">বিতরণ সম্পন্ন করতে, অনুগ্রহ করে আপনার অ্যাডমিন পাসওয়ার্ড দিন।</p>
+                <form id="admin-auth-form" class="bg-red-50 border border-red-200 rounded-lg p-3">
+                    <p class="mb-3 text-center text-red-800">বিতরণ সম্পন্ন করতে, অনুগ্রহ করে আপনার অ্যাডমিন পাসওয়ার্ড দিন।</p>
                     <div>
                         <label for="admin-password" class="block text-sm font-medium text-gray-700 mb-1">পাসওয়ার্ড</label>
                         <input type="password" id="admin-password" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500">
