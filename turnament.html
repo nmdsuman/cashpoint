@@ -228,6 +228,35 @@
         window.copyToClipboard = copyToClipboard;
 
         // --- Authentication ---
+        // Unified toast: showMessage(text, type='info', duration=3000)
+        // Backward compatible with showMessage(text, duration)
+        function showMessage(text, typeOrDuration = 'info', maybeDuration) {
+            const messageBox = document.getElementById('message-box');
+            if (!messageBox) return alert(text);
+            let type = 'info';
+            let duration = 3000;
+            if (typeof typeOrDuration === 'number') {
+                duration = typeOrDuration;
+            } else if (typeof typeOrDuration === 'string') {
+                type = typeOrDuration;
+                duration = typeof maybeDuration === 'number' ? maybeDuration : 3000;
+            }
+            messageBox.classList.remove('bg-green-600','bg-red-600','bg-slate-900');
+            switch (type) {
+                case 'success': messageBox.classList.add('bg-green-600'); break;
+                case 'error': messageBox.classList.add('bg-red-600'); break;
+                default: messageBox.classList.add('bg-slate-900'); break;
+            }
+            messageBox.setAttribute('role','alert');
+            messageBox.setAttribute('aria-live','assertive');
+            messageBox.textContent = text;
+            messageBox.classList.remove('hidden');
+            clearTimeout(messageBox.__hideTimer);
+            messageBox.__hideTimer = setTimeout(() => {
+                messageBox.classList.add('hidden');
+            }, duration);
+        }
+
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 currentUser = user;

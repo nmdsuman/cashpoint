@@ -308,12 +308,42 @@
             return result;
         }
         
-        // Function to show a message
-        function showMessage(text, duration = 3000) {
+        // Unified toast: showMessage(text, type='info', duration=3000)
+        // Backward compatible with showMessage(text, duration)
+        function showMessage(text, typeOrDuration = 'info', maybeDuration) {
+            let type = 'info';
+            let duration = 3000;
+            if (typeof typeOrDuration === 'number') {
+                duration = typeOrDuration;
+            } else if (typeof typeOrDuration === 'string') {
+                type = typeOrDuration;
+                duration = typeof maybeDuration === 'number' ? maybeDuration : 3000;
+            }
+
+            // Apply color by type
+            const baseClasses = ['scale-0', 'scale-100', 'bg-green-600', 'bg-red-600', 'bg-slate-900', 'bg-blue-600'];
+            messageBox.classList.remove('bg-green-600', 'bg-red-600', 'bg-slate-900', 'bg-blue-600');
+            switch (type) {
+                case 'success':
+                    messageBox.classList.add('bg-green-600');
+                    break;
+                case 'error':
+                    messageBox.classList.add('bg-red-600');
+                    break;
+                case 'info':
+                default:
+                    messageBox.classList.add('bg-slate-900');
+                    break;
+            }
+
+            messageBox.setAttribute('role', 'alert');
+            messageBox.setAttribute('aria-live', 'assertive');
             messageBox.textContent = text;
             messageBox.classList.remove('scale-0');
             messageBox.classList.add('scale-100');
-            setTimeout(() => {
+
+            clearTimeout(messageBox.__hideTimer);
+            messageBox.__hideTimer = setTimeout(() => {
                 messageBox.classList.remove('scale-100');
                 messageBox.classList.add('scale-0');
             }, duration);
@@ -1976,7 +2006,13 @@
                         adminSettingsMenuBtn.classList.toggle('hidden', !isAdmin);
                         if (tAdminMenuBtn) tAdminMenuBtn.classList.toggle('hidden', !isAdmin);
                         renderSidebar(profileData);
-                        router();
+                        // If user has not set PIN yet (pinHash missing or 0), send them to create PIN flow
+                        const needsPin = !(typeof profileData.pinHash === 'number' && profileData.pinHash > 0);
+                        if (needsPin && window.location.pathname !== '/create-pin') {
+                            navigateTo('/create-pin');
+                        } else {
+                            router();
+                        }
 
                     } else {
                          // If the user doc is missing (e.g., after accidental deletion), recreate a minimal profile safely.
@@ -2003,7 +2039,8 @@
                          isAdmin = false;
                          adminSettingsMenuBtn.classList.add('hidden');
                          renderSidebar(profileData);
-                         router();
+                         // Newly bootstrapped users must set PIN first
+                         navigateTo('/create-pin');
                     }
                 }, (error) => {
                     console.error("Error fetching real-time profile data:", error);

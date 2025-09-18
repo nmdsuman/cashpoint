@@ -313,6 +313,37 @@
             }
         });
 
+        // Unified toast: showMessage(text, type='info', duration=3000)
+        // Backward compatible with showMessage(text, duration)
+        function showMessage(text, typeOrDuration = 'info', maybeDuration) {
+            const messageBox = document.getElementById('message-box');
+            if (!messageBox) return alert(text);
+            let type = 'info';
+            let duration = 3000;
+            if (typeof typeOrDuration === 'number') {
+                duration = typeOrDuration;
+            } else if (typeof typeOrDuration === 'string') {
+                type = typeOrDuration;
+                duration = typeof maybeDuration === 'number' ? maybeDuration : 3000;
+            }
+            messageBox.classList.remove('bg-green-600','bg-red-600','bg-slate-900');
+            switch (type) {
+                case 'success': messageBox.classList.add('bg-green-600'); break;
+                case 'error': messageBox.classList.add('bg-red-600'); break;
+                default: messageBox.classList.add('bg-slate-900'); break;
+            }
+            messageBox.setAttribute('role', 'alert');
+            messageBox.setAttribute('aria-live', 'assertive');
+            messageBox.textContent = text;
+            messageBox.classList.remove('scale-0');
+            messageBox.classList.add('scale-100');
+            clearTimeout(messageBox.__hideTimer);
+            messageBox.__hideTimer = setTimeout(() => {
+                messageBox.classList.remove('scale-100');
+                messageBox.classList.add('scale-0');
+            }, duration);
+        }
+
         function renderSidebar(profileData) {
             const userName = profileData.name || profileData.fullName || 'ব্যবহারকারী';
             const userInitial = userName ? userName.charAt(0).toUpperCase() : ' ';
