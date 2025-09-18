@@ -165,13 +165,6 @@
         const postsContainerEl = document.getElementById('posts-container');
         const adminPostSectionEl = document.getElementById('admin-post-section');
         const modalContainerEl = document.getElementById('modal-container');
-        // Wallet slider elements
-        const walletSlider = document.getElementById('wallet-slider');
-        const openWalletSliderBtn = document.getElementById('open-wallet-slider');
-        const closeWalletSliderBtn = document.getElementById('close-wallet-slider');
-        const sliderLogoutBtn = document.getElementById('slider-logout-btn');
-        const sliderUserNameEl = document.getElementById('slider-user-name');
-        const sliderWalletBalanceEl = document.getElementById('slider-wallet-balance');
         // Role switch elements
         const roleSwitchEl = document.getElementById('role-switch');
         const btnCashAdmin = document.getElementById('btn-cash-admin');
@@ -252,9 +245,6 @@
                     if (userData) {
                         document.getElementById('welcome-message').textContent = userData.fullName || 'ব্যবহারকারী';
                         document.getElementById('wallet-balance').textContent = `৳${(userData.balance || 0).toFixed(2)}`;
-                        // Update slider header info
-                        if (sliderUserNameEl) sliderUserNameEl.textContent = userData.fullName || 'ব্যবহারকারী';
-                        if (sliderWalletBalanceEl) sliderWalletBalanceEl.textContent = `৳${(userData.balance || 0).toFixed(2)}`;
                         // Header admin buttons visible only for admins
                         const isAdminUser = userData.isAdmin === true;
                         if (isAdminUser) {
@@ -333,23 +323,16 @@
             };
         }
 
-        // --- Wallet slider open/close and logout ---
-        const openWalletSlider = () => {
-            if (!walletSlider) return;
-            walletSlider.classList.remove('translate-x-full');
-            walletSlider.classList.add('translate-x-0');
-        };
-        const closeWalletSlider = () => {
-            if (!walletSlider) return;
-            walletSlider.classList.add('translate-x-full');
-            walletSlider.classList.remove('translate-x-0');
-        };
-        if (openWalletSliderBtn) openWalletSliderBtn.onclick = openWalletSlider;
-        if (closeWalletSliderBtn) closeWalletSliderBtn.onclick = closeWalletSlider;
-        window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeWalletSlider(); });
-        if (sliderLogoutBtn) sliderLogoutBtn.onclick = async () => {
-            try { await signOut(auth); } catch { showMessage('লগআউট করতে সমস্যা হয়েছে', 'error'); }
-        };
+        // --- Logout handler ---
+        if (logoutBtn) {
+            logoutBtn.onclick = async () => {
+                try {
+                    await signOut(auth);
+                } catch (e) {
+                    showMessage('লগআউট করতে সমস্যা হয়েছে', 'error');
+                }
+            };
+        }
         
         const renderAuthForm = (isLogin = true) => {
             authViewEl.innerHTML = `
@@ -1420,9 +1403,7 @@
         };
 
         // Initial Load Event Listener
-        // Header logout removed; keep backward-compat if element exists
-        const legacyLogoutBtn = document.getElementById('logout-btn');
-        if (legacyLogoutBtn) legacyLogoutBtn.onclick = () => signOut(auth);
+        document.getElementById('logout-btn').onclick = () => signOut(auth);
 
     </script>
 </body>
