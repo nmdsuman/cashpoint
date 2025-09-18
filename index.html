@@ -10,6 +10,7 @@
             font-family: sans-serif;
             background-color: #f0f2f5;
         }
+        
         .bg-cashpoint-pink {
             background-color: #E2136E;
         }
@@ -190,7 +191,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, signInWithCustomToken, signInAnonymously, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, updateProfile } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot, runTransaction, collection, query, where, getDocs, getDoc, addDoc, serverTimestamp, deleteDoc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, onSnapshot, runTransaction, collection, query, where, getDocs, getDoc, addDoc, serverTimestamp, deleteDoc, updateDoc, increment, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // ****** নতুনভাবে সেট করা কনফিগারেশন ******
         // আপনার দেওয়া Firebase configuration
@@ -825,11 +826,29 @@
             requestsListDiv.appendChild(noRequestsPara);
             pendingSectionDiv.append(pendingH3, requestsListDiv);
             
-            container.append(userInfoDiv, balanceDiv, gridDiv, pendingSectionDiv);
+            // Recent transactions section
+            const recentSectionDiv = document.createElement('div');
+            recentSectionDiv.id = 'recent-transactions-section';
+            recentSectionDiv.className = 'w-full space-y-4';
+            const recentH3 = document.createElement('h3');
+            recentH3.className = 'text-xl font-bold text-gray-800 border-b pb-2';
+            recentH3.textContent = 'সাম্প্রতিক লেনদেন';
+            const recentListDiv = document.createElement('div');
+            recentListDiv.id = 'recent-transactions-list';
+            recentListDiv.className = 'space-y-2';
+            const noRecentPara = document.createElement('p');
+            noRecentPara.className = 'text-center text-gray-500';
+            noRecentPara.textContent = 'কোনো লেনদেন নেই।';
+            recentListDiv.appendChild(noRecentPara);
+            recentSectionDiv.append(recentH3, recentListDiv);
+            
+            container.append(userInfoDiv, balanceDiv, gridDiv, pendingSectionDiv, recentSectionDiv);
             mainContent.appendChild(container);
 
             // Render pending requests
             renderPendingRequests(pendingSectionDiv);
+            // Render last 5 transactions
+            renderRecentTransactions(recentSectionDiv);
         }
         
         // [SECURE] Render the statement page
@@ -1088,7 +1107,8 @@
             `;
             document.getElementById('bkash-transfer-btn').addEventListener('click', () => showMoneyTransferForm('bkash'));
             document.getElementById('nagad-transfer-btn').addEventListener('click', () => showMoneyTransferForm('nagad'));
-            document.getElementById('back-to-transfer-options-btn').addEventListener('click', () => navigateTo('/transfer-money'));
+            // On the options screen, 'ফিরে যান' should go back to home
+            document.getElementById('back-to-transfer-options-btn').addEventListener('click', () => navigateTo('/'));
         }
 
         // Render the money transfer form (SAFE - No user-generated content)
