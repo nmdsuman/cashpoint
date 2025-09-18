@@ -72,8 +72,8 @@
         }
 
         if (isAdmin) {
-          statusEl.textContent = 'রিডাইরেক্ট করা হচ্ছে...';
-          window.location.href = '/turnament';
+          statusEl.textContent = 'আপনি অ্যাডমিন হিসেবে যাচাই হয়েছেন।';
+          actionsEl.classList.remove('hidden');
         } else {
           statusEl.textContent = 'আপনার অ্যাডমিন অনুমতি নেই।';
           actionsEl.classList.remove('hidden');
