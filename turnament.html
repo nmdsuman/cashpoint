@@ -184,7 +184,7 @@
         // Generic modal renderer used across admin flows (players/proof/auth)
         const renderModal = (id, title, bodyHtml) => {
             if (!modalContainerEl) return;
-            modalContainerEl.innerHTML = `
+            const html = `
                 <div id="${id}" class="modal fixed inset-0 z-[130] items-center justify-center">
                     <div class="absolute inset-0 bg-black/50" data-close="1"></div>
                     <div class="modal-content relative bg-white rounded-2xl w-11/12 max-w-sm p-4">
@@ -195,12 +195,14 @@
                         <div class="modal-body">${bodyHtml}</div>
                     </div>
                 </div>`;
+            // Append without removing existing modals (so parent modal like createPostModal stays open)
+            modalContainerEl.insertAdjacentHTML('beforeend', html);
             const modalEl = document.getElementById(id);
             // open with transition
             requestAnimationFrame(() => modalEl.classList.add('show'));
             const close = () => {
                 modalEl.classList.remove('show');
-                setTimeout(() => { modalContainerEl.innerHTML = ''; }, 250);
+                setTimeout(() => { modalEl.remove(); }, 250);
             };
             modalEl.querySelector('[data-close]')?.addEventListener('click', close);
             modalEl.querySelector('.close-button')?.addEventListener('click', close);
