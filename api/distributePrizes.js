@@ -63,7 +63,6 @@ export default async function handler(req, res) {
     const postRef = db.doc(`artifacts/${appId}/public/data/posts/${postId}`);
 
     await db.runTransaction(async (tx) => {
-      // 1) Read all documents first
       const postSnap = await tx.get(postRef);
       if (!postSnap.exists) {
         throw new Error('টুর্নামেন্ট পাওয়া যায়নি।');
@@ -80,19 +79,17 @@ export default async function handler(req, res) {
         contestName = cd.contestName || cd.gameName || null;
       } catch {}
 
-      const userRefs = sanitized.map(w => db.doc(`artifacts/${appId}/users/${w.userId}`));
-      const userSnaps = await Promise.all(userRefs.map(ref => tx.get(ref)));
-
-      // 2) Perform writes after all reads are done
-      sanitized.forEach((w, idx) => {
-        const userRef = userRefs[idx];
-        const userSnap = userSnaps[idx];
+      for (const w of sanitized) {
+        const userRef = db.doc(`artifacts/${appId}/users/${w.userId}`);
+        const userSnap = await tx.get(userRef);
         if (!userSnap.exists) {
-          return; // skip non-existent users
+          // Skip non-existent users silently; could also throw
+          continue;
         }
         const currentBalance = Number(userSnap.data()?.balance || 0);
         tx.update(userRef, { balance: currentBalance + w.amount });
 
+        // Create a transaction record for the prize credit
         const userTxRef = userRef.collection('transactions').doc();
         tx.set(userTxRef, {
           type: 'tournament_prize',
@@ -104,7 +101,7 @@ export default async function handler(req, res) {
           transactionId: generateTransactionId(),
           metadata: { postId, contestName }
         });
-      });
+      }
 
       tx.update(postRef, {
         status: 'prizes_distributed',
