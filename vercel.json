@@ -25,6 +25,14 @@
       "destination": "/admin.html"
     },
     {
+      "source": "/pin-setup",
+      "destination": "/admin.html"
+    },
+    {
+      "source": "/create-pin",
+      "destination": "/admin.html"
+    },
+    {
       "source": "/admin-t",
       "destination": "/turnament.html"
     },
