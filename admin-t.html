@@ -23,8 +23,8 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCb9v4Q8XsaBKpnopMHE_5_aXEEMkEQork",
@@ -53,12 +53,10 @@
 
       try {
         statusEl.textContent = 'অ্যাডমিন যাচাই করা হচ্ছে...';
-        const userRef = doc(db, `artifacts/${appId}/users/${user.uid}`);
-        const snap = await getDoc(userRef);
-        const data = snap.exists() ? snap.data() : {};
-        if (data.isAdmin) {
+        const tokenResult = await user.getIdTokenResult(true);
+        const isAdmin = !!tokenResult.claims.admin;
+        if (isAdmin) {
           statusEl.textContent = 'রিডাইরেক্ট করা হচ্ছে...';
-          // Auto-redirect to tournament dashboard where admin features exist
           window.location.href = '/turnament';
         } else {
           statusEl.textContent = 'আপনার অ্যাডমিন অনুমতি নেই।';

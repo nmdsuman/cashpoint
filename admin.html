@@ -375,7 +375,8 @@
                     if (isAdmin) {
                         renderAdminDashboard();
                     } else {
-                        showMessage('আপনার অ্যাডমিন অনুমতি নেই।');
+                        showMessage('আপনার অ্যাডমিন অনুমতি নেই।', 'error');
+                        setTimeout(() => { window.location.href = '/'; }, 1000);
                     }
                     break;
                 default:
@@ -405,6 +406,8 @@
                 }
                 adminSettingsMenuBtn.classList.toggle('hidden', !isAdmin);
                 if (tAdminMenuBtn) tAdminMenuBtn.classList.toggle('hidden', !isAdmin);
+                // Route immediately based on claims (don't wait for Firestore)
+                router();
 
                 // Keep profile snapshot only for sidebar data, do not override isAdmin from Firestore
                 const profileDocRef = doc(db, `artifacts/${appId}/users/${user.uid}`);
@@ -413,7 +416,6 @@
                     if (docSnap.exists()){
                         const profileData = docSnap.data();
                         renderSidebar(profileData);
-                        router();
                     }
                 });
                 subscribeToAppConfig();
