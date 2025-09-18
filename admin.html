@@ -334,7 +334,8 @@
             }
             messageBox.setAttribute('role', 'alert');
             messageBox.setAttribute('aria-live', 'assertive');
-            messageBox.textContent = text;
+            const emoji = type === 'success' ? '✅' : (type === 'error' ? '❌' : 'ℹ️');
+            messageBox.textContent = `${emoji} ${text}`;
             messageBox.classList.remove('scale-0');
             messageBox.classList.add('scale-100');
             clearTimeout(messageBox.__hideTimer);
@@ -393,15 +394,24 @@
             if (user) {
                 bottomNav.classList.remove('hidden');
                 currentUser = user;
+
+                // Fast admin detection via Auth custom claims
+                try {
+                    const tokenResult = await user.getIdTokenResult(true);
+                    isAdmin = !!tokenResult.claims.admin;
+                } catch (e) {
+                    console.error('Failed to read token claims', e);
+                    isAdmin = false;
+                }
+                adminSettingsMenuBtn.classList.toggle('hidden', !isAdmin);
+                if (tAdminMenuBtn) tAdminMenuBtn.classList.toggle('hidden', !isAdmin);
+
+                // Keep profile snapshot only for sidebar data, do not override isAdmin from Firestore
                 const profileDocRef = doc(db, `artifacts/${appId}/users/${user.uid}`);
                 if (unsubscribeFromProfile) unsubscribeFromProfile();
                 unsubscribeFromProfile = onSnapshot(profileDocRef, (docSnap) => {
                     if (docSnap.exists()){
                         const profileData = docSnap.data();
-                        if (profileData.isAdmin === undefined) { updateDoc(profileDocRef, { isAdmin: false }); return; }
-                        isAdmin = profileData.isAdmin;
-                        adminSettingsMenuBtn.classList.toggle('hidden', !isAdmin);
-                        if (tAdminMenuBtn) tAdminMenuBtn.classList.toggle('hidden', !isAdmin);
                         renderSidebar(profileData);
                         router();
                     }
