@@ -1024,9 +1024,22 @@
                         const hasProof = !!(player?.note) || !!(player?.screenshotUrl);
                         playersHTML += `
                             <div class="bg-slate-100 p-3 rounded-lg flex flex-col gap-2">
-                                <div>
-                                    <p class="font-semibold">${player.fullName}</p>
-                                    <p class="text-xs text-gray-500">ID: ${player.idValue}</p>
+                                <div class="flex items-start justify-between gap-2">
+                                    <div>
+                                        <p class="font-semibold">${player.fullName}</p>
+                                        <p class="text-xs text-gray-500">ID: ${player.idValue}</p>
+                                    </div>
+                                    <div class="flex-shrink-0">
+                                        <button 
+                                            class="view-proof-btn ${hasProof ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'bg-gray-300 text-gray-600 cursor-not-allowed'} text-xs font-semibold py-1.5 px-2.5 rounded"
+                                            ${hasProof ? '' : 'disabled title="কোনো প্রুফ নেই"'}
+                                            data-fullname="${player.fullName || ''}"
+                                            data-idvalue="${player.idValue || ''}"
+                                            data-note="${(player.note || '').toString().replace(/`/g,'\`').replace(/"/g,'&quot;')}"
+                                            data-screenshoturl="${player.screenshotUrl || ''}">
+                                            প্রুফ দেখুন
+                                        </button>
+                                    </div>
                                 </div>
                                 <div class="flex items-center space-x-2">
                                     <span class="font-semibold text-gray-600">৳</span>
