@@ -72,8 +72,9 @@
         }
 
         if (isAdmin) {
-          statusEl.textContent = 'আপনি অ্যাডমিন হিসেবে যাচাই হয়েছেন।';
-          actionsEl.classList.remove('hidden');
+          // Redirect verified admins straight to the admin panel (tournament dashboard)
+          window.location.replace('/turnament');
+          return;
         } else {
           statusEl.textContent = 'আপনার অ্যাডমিন অনুমতি নেই।';
           actionsEl.classList.remove('hidden');
