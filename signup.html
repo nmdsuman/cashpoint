@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CashPoint - সাইন আপ</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+  <div class="w-full max-w-sm bg-white rounded-2xl shadow p-6">
+    <h1 class="text-2xl font-bold text-center mb-6">সাইন আপ</h1>
+    <form id="signup-form" class="space-y-4">
+      <input id="name" type="text" placeholder="আপনার নাম" class="w-full p-3 border rounded-xl" required />
+      <input id="email" type="email" placeholder="ইমেইল" class="w-full p-3 border rounded-xl" required />
+      <input id="password" type="password" placeholder="পাসওয়ার্ড" class="w-full p-3 border rounded-xl" required />
+      <button type="submit" class="w-full py-3 bg-pink-600 hover:bg-pink-700 text-white font-bold rounded-xl">অ্যাকাউন্ট তৈরি করুন</button>
+    </form>
+    <div class="flex items-center justify-between mt-4 text-sm">
+      <a href="/login" class="text-blue-600">ইতিমধ্যেই অ্যাকাউন্ট আছে?</a>
+    </div>
+    <p id="msg" class="mt-4 text-center text-sm text-gray-600"></p>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, createUserWithEmailAndPassword, updateProfile, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCb9v4Q8XsaBKpnopMHE_5_aXEEMkEQork",
+      authDomain: "cashpoint-f8b51.firebaseapp.com",
+      projectId: "cashpoint-f8b51",
+      storageBucket: "cashpoint-f8b51.firebasestorage.app",
+      messagingSenderId: "50891144664",
+      appId: "1:50891144664:web:e90f63977c95c86c04c6ad",
+      measurementId: "G-WJXSMFBEE6"
+    };
+    const appId = "cashpoint-f8b51";
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const msg = (t) => document.getElementById('msg').textContent = t || '';
+
+    onAuthStateChanged(auth, (user) => { if (user) window.location.replace('/'); });
+
+    document.getElementById('signup-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      msg('অ্যাকাউন্ট তৈরি হচ্ছে...');
+      try {
+        const name = document.getElementById('name').value.trim();
+        const email = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value;
+        const cred = await createUserWithEmailAndPassword(auth, email, password);
+        await updateProfile(cred.user, { displayName: name });
+        await setDoc(doc(db, `artifacts/${appId}/users/${cred.user.uid}`), {
+          name: name || 'ব্যবহারকারী',
+          fullName: name || 'ব্যবহারকারী',
+          email: cred.user.email || '',
+          mobile: '',
+          dob: '',
+          balance: 0.00,
+          isAdmin: false,
+          pinHash: 0
+        }, { merge: true });
+        window.location.replace('/');
+      } catch (err) {
+        msg('সাইন আপ ব্যর্থ হয়েছে। আবার চেষ্টা করুন।');
+      }
+    });
+  </script>
+</body>
+</html>

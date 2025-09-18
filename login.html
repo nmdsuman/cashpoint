@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CashPoint - লগইন</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+  <div class="w-full max-w-sm bg-white rounded-2xl shadow p-6">
+    <h1 class="text-2xl font-bold text-center mb-6">লগইন</h1>
+    <form id="login-form" class="space-y-4">
+      <input id="email" type="email" placeholder="ইমেইল" class="w-full p-3 border rounded-xl" required />
+      <input id="password" type="password" placeholder="পাসওয়ার্ড" class="w-full p-3 border rounded-xl" required />
+      <button type="submit" class="w-full py-3 bg-pink-600 hover:bg-pink-700 text-white font-bold rounded-xl">সাইন ইন</button>
+    </form>
+    <div class="flex items-center justify-between mt-4 text-sm">
+      <a href="/forgot-password" class="text-blue-600">পাসওয়ার্ড ভুলে গেছেন?</a>
+      <a href="/signup" class="text-blue-600">অ্যাকাউন্ট তৈরি করুন</a>
+    </div>
+    <button id="google-btn" class="mt-4 w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl flex items-center justify-center gap-2">
+      <i class="fab fa-google"></i>
+      Google দিয়ে সাইন ইন
+    </button>
+    <p id="msg" class="mt-4 text-center text-sm text-gray-600"></p>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCb9v4Q8XsaBKpnopMHE_5_aXEEMkEQork",
+      authDomain: "cashpoint-f8b51.firebaseapp.com",
+      projectId: "cashpoint-f8b51",
+      storageBucket: "cashpoint-f8b51.firebasestorage.app",
+      messagingSenderId: "50891144664",
+      appId: "1:50891144664:web:e90f63977c95c86c04c6ad",
+      measurementId: "G-WJXSMFBEE6"
+    };
+    const appId = "cashpoint-f8b51";
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const provider = new GoogleAuthProvider();
+
+    const msg = (t) => document.getElementById('msg').textContent = t || '';
+
+    onAuthStateChanged(auth, (user) => { if (user) window.location.replace('/'); });
+
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      msg('সাইন ইন হচ্ছে...');
+      try {
+        const email = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value;
+        await signInWithEmailAndPassword(auth, email, password);
+        window.location.replace('/');
+      } catch (err) {
+        msg('সাইন ইন ব্যর্থ হয়েছে। আবার চেষ্টা করুন।');
+      }
+    });
+
+    document.getElementById('google-btn').addEventListener('click', async () => {
+      msg('Google সাইন ইন হচ্ছে...');
+      try {
+        const result = await signInWithPopup(auth, provider);
+        const user = result.user;
+        const ref = doc(db, `artifacts/${appId}/users/${user.uid}`);
+        const snap = await getDoc(ref);
+        if (!snap.exists()) {
+          await setDoc(ref, {
+            name: user.displayName || 'New User',
+            fullName: user.displayName || 'New User',
+            email: user.email || '',
+            balance: 0.00,
+            mobile: '',
+            dob: '',
+            isAdmin: false,
+            pinHash: 0
+          }, { merge: true });
+        }
+        window.location.replace('/');
+      } catch (err) {
+        msg('Google সাইন ইন ব্যর্থ হয়েছে।');
+      }
+    });
+  </script>
+</body>
+</html>
