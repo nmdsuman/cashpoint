@@ -24,7 +24,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCb9v4Q8XsaBKpnopMHE_5_aXEEMkEQork",
@@ -59,11 +59,12 @@
         // Fallback: profile isAdmin (users/{uid}.isAdmin)
         if (!isAdmin) {
           try {
-            const { getFirestore, doc, getDoc } = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js');
-            const db2 = getFirestore();
-            const snap = await getDoc(doc(db2, `artifacts/${appId}/users/${user.uid}`));
-            if (snap.exists() && snap.data().isAdmin === true) {
-              isAdmin = true;
+            const snap = await getDoc(doc(db, `artifacts/${appId}/users/${user.uid}`));
+            if (snap.exists()) {
+              const v = snap.data().isAdmin;
+              if (v === true || v === 'true' || v === 1) {
+                isAdmin = true;
+              }
             }
           } catch (e) {
             console.error('Fallback profile check failed', e);
