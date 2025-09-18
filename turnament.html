@@ -133,7 +133,7 @@
     <script type="module">
         // Firebase SDKs
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, onAuthStateChanged, signOut, EmailAuthProvider, reauthenticateWithCredential } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, query, onSnapshot, orderBy, addDoc, getDocs, where, runTransaction, deleteDoc, serverTimestamp, increment } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Use CashPoint Firebase configuration (shared across CashPoint and Tournament)
@@ -1218,9 +1218,12 @@
                 const user = auth.currentUser;
                 if (!user) throw new Error('প্রথমে লগইন করুন।');
 
-                // Optional: re-authenticate admin for UX confirmation
-                const credential = EmailAuthProvider.credential(user.email, password);
-                await reauthenticateWithCredential(user, credential);
+                // Optional: re-authenticate admin only if using password provider
+                const usesPasswordProvider = Array.isArray(user.providerData) && user.providerData.some(p => p?.providerId === 'password');
+                if (usesPasswordProvider) {
+                    const credential = EmailAuthProvider.credential(user.email, password);
+                    await reauthenticateWithCredential(user, credential);
+                }
 
                 const token = await user.getIdToken();
                 const resp = await fetch('/api/distributePrizes', {
