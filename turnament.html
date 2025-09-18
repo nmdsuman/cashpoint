@@ -133,8 +133,8 @@
     <script type="module">
         // Firebase SDKs
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged, signOut, EmailAuthProvider, reauthenticateWithCredential } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, collectionGroup, query, onSnapshot, orderBy, addDoc, getDocs, where, runTransaction, deleteDoc, serverTimestamp, increment } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, query, onSnapshot, orderBy, addDoc, getDocs, where, runTransaction, deleteDoc, serverTimestamp, increment } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Use CashPoint Firebase configuration (shared across CashPoint and Tournament)
         const firebaseConfig = {
@@ -155,7 +155,6 @@
         // Global App ID for Firestore paths (fixed to shared project id)
         const appId = "cashpoint-f8b51";
         let currentUser = null;
-        let currentIsAdmin = false; // global admin flag for guarding admin-only features
         let currentAdminFilter = 'active'; // Default filter for admin
         let postsUnsubscribe = null; // To detach listener on filter change
 
@@ -182,33 +181,6 @@
         const logoutBtn = document.getElementById('logout-btn');
         const walletArea = document.getElementById('wallet-area');
 
-        // Generic modal renderer used across admin flows (players/proof/auth)
-        const renderModal = (id, title, bodyHtml) => {
-            if (!modalContainerEl) return;
-            const html = `
-                <div id="${id}" class="modal fixed inset-0 z-[130] items-center justify-center">
-                    <div class="absolute inset-0 bg-black/50" data-close="1"></div>
-                    <div class="modal-content relative bg-white rounded-2xl w-11/12 max-w-sm p-4">
-                        <div class="flex items-center justify-between mb-2">
-                            <h3 class="text-lg font-bold text-gray-800">${title}</h3>
-                            <button class="close-button w-9 h-9 rounded-full hover:bg-gray-100"><i class="fas fa-times"></i></button>
-                        </div>
-                        <div class="modal-body">${bodyHtml}</div>
-                    </div>
-                </div>`;
-            // Append without removing existing modals (so parent modal like createPostModal stays open)
-            modalContainerEl.insertAdjacentHTML('beforeend', html);
-            const modalEl = document.getElementById(id);
-            // open with transition
-            requestAnimationFrame(() => modalEl.classList.add('show'));
-            const close = () => {
-                modalEl.classList.remove('show');
-                setTimeout(() => { modalEl.remove(); }, 250);
-            };
-            modalEl.querySelector('[data-close]')?.addEventListener('click', close);
-            modalEl.querySelector('.close-button')?.addEventListener('click', close);
-        };
-
         // Helper Functions
         const showMessage = (text, type = 'info') => {
             const messageBox = document.getElementById('message-box');
@@ -216,70 +188,46 @@
             messageBox.classList.remove('hidden', 'bg-green-500', 'bg-red-500', 'bg-blue-500');
             const colorClass = type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500';
             messageBox.classList.add(colorClass);
-            const emoji = type === 'success' ? '✅' : (type === 'error' ? '❌' : 'ℹ️');
-            messageText.textContent = `${emoji} ${text}`;
+            messageText.textContent = text;
             setTimeout(() => messageBox.classList.add('hidden'), 3000);
         };
 
-        // Admin Aggregates: totals from transactions (safe even if posts are deleted)
-        const ensureAggSection = () => {
-            if (!walletSlider) return null;
-            let el = document.getElementById('slider-agg');
-            if (!el) {
-                el = document.createElement('div');
-                el.id = 'slider-agg';
-                el.className = 'mt-4 p-4 rounded-xl bg-indigo-50 border border-indigo-200';
-                el.innerHTML = `
-                  <div class="flex items-center justify-between mb-2">
-                    <h3 class="text-sm font-bold text-indigo-800">Tournament Totals</h3>
-                    <button id="agg-refresh" class="text-xs px-2 py-1 rounded bg-indigo-600 text-white">Refresh</button>
-                  </div>
-                  <div class="grid grid-cols-3 gap-2 text-center">
-                    <div><div class="text-[11px] text-gray-600">Join Fees</div><div id="agg-join" class="font-extrabold text-gray-900">৳0</div></div>
-                    <div><div class="text-[11px] text-gray-600">Prizes</div><div id="agg-prize" class="font-extrabold text-gray-900">৳0</div></div>
-                    <div><div class="text-[11px] text-gray-600">Profit</div><div id="agg-profit" class="font-extrabold text-green-700">৳0</div></div>
-                  </div>`;
-                const content = walletSlider.querySelector('.p-4.space-y-4');
-                if (content) content.appendChild(el);
-                document.getElementById('agg-refresh').onclick = () => loadTournamentAggregates();
-            }
-            return el;
+        const renderModal = (id, title, content, onClose = () => {}) => {
+            const modalHTML = `
+                <div id="${id}" class="modal fixed inset-0 z-[100] items-center justify-center bg-black bg-opacity-50">
+                    <div class="modal-content bg-white rounded-xl shadow-lg w-11/12 max-w-lg max-h-[90vh] flex flex-col">
+                        <header class="flex justify-between items-center p-4 border-b">
+                            <h2 class="text-xl font-semibold text-gray-800">${title}</h2>
+                            <button class="close-button text-gray-400 hover:text-gray-700 text-2xl font-bold">&times;</button>
+                        </header>
+                        <div class="p-5 overflow-y-auto no-scrollbar">${content}</div>
+                    </div>
+                </div>
+            `;
+            modalContainerEl.innerHTML = modalHTML;
+            const modal = document.getElementById(id);
+            modal.classList.add('show');
+            modal.querySelector('.close-button').onclick = () => {
+                modal.classList.remove('show');
+                setTimeout(() => { modalContainerEl.innerHTML = ''; onClose(); }, 300);
+            };
+            modal.onclick = (e) => {
+                if (e.target.id === id) {
+                     modal.querySelector('.close-button').click();
+                }
+            };
         };
-
-        const loadTournamentAggregates = async () => {
-            if (!currentIsAdmin) return; // guard: admin only
-            try {
-                const el = ensureAggSection();
-                if (!el) return;
-                const joinEl = document.getElementById('agg-join');
-                const prizeEl = document.getElementById('agg-prize');
-                const profitEl = document.getElementById('agg-profit');
-                if (joinEl) joinEl.textContent = '…';
-                if (prizeEl) prizeEl.textContent = '…';
-                if (profitEl) profitEl.textContent = '…';
-                // Get totals from secure API (Admin SDK)
-                const token = await auth.currentUser.getIdToken();
-                const resp = await fetch('/api/getTournamentTotals', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                const data = await resp.json();
-                if (!resp.ok) throw new Error(data.message || 'Failed to load totals');
-
-                const joinSum = Number(data.join || 0);
-                const prizeSum = Number(data.prize || 0);
-                const profit = Number(data.profit || (joinSum - prizeSum));
-
-                const fmt = (n) => `৳${n.toFixed(2)}`;
-                if (joinEl) joinEl.textContent = fmt(joinSum);
-                if (prizeEl) prizeEl.textContent = fmt(prizeSum);
-                if (profitEl) { profitEl.textContent = fmt(profit); profitEl.classList.toggle('text-green-700', profit >= 0); profitEl.classList.toggle('text-red-700', profit < 0); }
-            } catch (e) {
-                console.error('Failed to load aggregates', e);
-                // Only show error for admins
-                showMessage('Totals লোড করতে সমস্যা হয়েছে।', 'error');
-            }
+        
+        const copyToClipboard = (text) => {
+            navigator.clipboard.writeText(text).then(() => {
+                showMessage('কপি করা হয়েছে!', 'success');
+            }).catch(err => {
+                showMessage('কপি করতে ব্যর্থ।', 'error');
+            });
         };
+        window.copyToClipboard = copyToClipboard;
 
+        // --- Authentication ---
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 currentUser = user;
@@ -305,20 +253,13 @@
                     }
                     const userData = docSnap.data();
                     if (userData) {
-                        // Combine Auth custom claims with Firestore field for robust admin detection
-                        let hasClaimAdmin = false;
-                        try {
-                            const tokenResult = await auth.currentUser.getIdTokenResult(true);
-                            hasClaimAdmin = !!tokenResult.claims.admin;
-                        } catch (_) { /* ignore */ }
                         document.getElementById('welcome-message').textContent = userData.fullName || 'ব্যবহারকারী';
                         document.getElementById('wallet-balance').textContent = `৳${(userData.balance || 0).toFixed(2)}`;
                         // Update slider header info
                         if (sliderUserNameEl) sliderUserNameEl.textContent = userData.fullName || 'ব্যবহারকারী';
                         if (sliderWalletBalanceEl) sliderWalletBalanceEl.textContent = `৳${(userData.balance || 0).toFixed(2)}`;
                         // Header admin buttons visible only for admins
-                        const isAdminUser = hasClaimAdmin || (userData.isAdmin === true);
-                        currentIsAdmin = !!isAdminUser;
+                        const isAdminUser = userData.isAdmin === true;
                         if (isAdminUser) {
                             roleSwitchEl.classList.remove('hidden');
                         } else {
@@ -329,13 +270,8 @@
                         if (isAdminUser && isAdminRoute) {
                             adminPostSectionEl.classList.remove('hidden');
                             renderAdminControls();
-                            // Show and refresh admin aggregates in slider (admin only)
-                            ensureAggSection();
-                            loadTournamentAggregates();
                         } else {
                             adminPostSectionEl.classList.add('hidden');
-                            // Hide aggregates UI if user is not admin
-                            document.getElementById('slider-agg')?.remove();
                         }
                         // If user opened the dedicated tournament admin route, enforce access
                         if (window.location.pathname === '/admin-t') {
@@ -404,11 +340,6 @@
             if (!walletSlider) return;
             walletSlider.classList.remove('translate-x-full');
             walletSlider.classList.add('translate-x-0');
-            // Admin-only: refresh aggregates whenever slider opens
-            if (currentIsAdmin) {
-                ensureAggSection();
-                loadTournamentAggregates();
-            }
         };
         const closeWalletSlider = () => {
             if (!walletSlider) return;
@@ -465,13 +396,7 @@
 
             const postsCollection = collection(db, 'artifacts', appId, 'public', 'data', 'posts');
             const userDoc = await getDoc(doc(db, 'artifacts', appId, 'users', currentUser.uid));
-            // Combine token claim with Firestore flag for admin detection
-            let claimAdmin = false;
-            try {
-                const tokenResult = await auth.currentUser.getIdTokenResult(true);
-                claimAdmin = !!tokenResult.claims.admin;
-            } catch (_) { /* ignore */ }
-            const isAdminUser = claimAdmin || (userDoc.data()?.isAdmin === true);
+            const isAdminUser = userDoc.data()?.isAdmin === true;
             const isAdminRoute = window.location.pathname === '/admin-t';
             const currentUserRole = (isAdminUser && isAdminRoute) ? 'admin' : 'user';
 
@@ -1289,12 +1214,9 @@
                 const user = auth.currentUser;
                 if (!user) throw new Error('প্রথমে লগইন করুন।');
 
-                // Optional: re-authenticate admin only if using password provider
-                const usesPasswordProvider = Array.isArray(user.providerData) && user.providerData.some(p => p?.providerId === 'password');
-                if (usesPasswordProvider) {
-                    const credential = EmailAuthProvider.credential(user.email, password);
-                    await reauthenticateWithCredential(user, credential);
-                }
+                // Optional: re-authenticate admin for UX confirmation
+                const credential = EmailAuthProvider.credential(user.email, password);
+                await reauthenticateWithCredential(user, credential);
 
                 const token = await user.getIdToken();
                 const resp = await fetch('/api/distributePrizes', {
