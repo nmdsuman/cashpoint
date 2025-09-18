@@ -21,8 +21,12 @@
       "destination": "/turnament.html"
     },
     {
+      "source": "/admin",
+      "destination": "/admin.html"
+    },
+    {
       "source": "/admin-t",
-      "destination": "/turnament.html"
+      "destination": "/admin-t.html"
     },
     {
       "source": "/:path((?!api/).*)",

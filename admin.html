@@ -401,6 +401,7 @@
         if (gamingBtn) { gamingBtn.addEventListener('click', () => { window.location.href = '/turnament'; }); }
         if (homeBtn) { homeBtn.addEventListener('click', () => navigateTo('/')); }
         if (homeBtnMenu) { homeBtnMenu.addEventListener('click', () => { navigateTo('/'); menuSidebar.classList.remove('open'); }); }
+        if (tAdminMenuBtn) { tAdminMenuBtn.addEventListener('click', () => { if (isAdmin) { window.location.href = '/admin-t.html'; menuSidebar.classList.remove('open'); } }); }
 
         async function handleLogout() {
             try { await signOut(auth); showMessage("আপনি সফলভাবে লগআউট করেছেন।"); } catch (e) { showMessage("লগআউট ব্যর্থ হয়েছে।"); }
