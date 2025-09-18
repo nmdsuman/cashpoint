@@ -626,6 +626,77 @@
             renderRecentTransactions(recentSectionDiv);
         }
         
+        // Render last 5 transactions (any status) for the dashboard
+        async function renderRecentTransactions(container) {
+            try {
+                const listEl = container.querySelector('#recent-transactions-list');
+                if (!listEl || !currentUser) return;
+                listEl.innerHTML = '<div class="text-center p-3"><div class="animate-spin rounded-full h-6 w-6 border-4 border-cashpoint-pink border-t-transparent mx-auto"></div></div>';
+
+                // Same source as Statement: artifacts/{appId}/users/{uid}/transactions
+                const txCol = collection(db, `artifacts/${appId}/users/${currentUser.uid}/transactions`);
+                const qTx = query(txCol, orderBy('timestamp', 'desc'), limit(5));
+                const snap = await getDocs(qTx);
+
+                listEl.innerHTML = '';
+                if (snap.empty) {
+                    listEl.innerHTML = '<p class="text-center text-gray-500">কোনো লেনদেন নেই।</p>';
+                    return;
+                }
+
+                snap.forEach(docSnap => {
+                    const tx = docSnap.data();
+
+                    // Type -> icon, color and amount sign (align with Statement)
+                    let icon = 'fa-receipt';
+                    let color = 'text-gray-600';
+                    let amountPrefix = '';
+                    let title = 'লেনদেন';
+                    switch (tx.type) {
+                        case 'deposit': icon = 'fa-plus'; color = 'text-green-500'; amountPrefix = '+ ৳'; title = 'অ্যাড মানি'; break;
+                        case 'send': icon = 'fa-paper-plane'; color = 'text-red-500'; amountPrefix = '- ৳'; title = 'সেন্ড মানি'; break;
+                        case 'receive': icon = 'fa-inbox'; color = 'text-green-500'; amountPrefix = '+ ৳'; title = 'রিসিভ মানি'; break;
+                        case 'transfer': icon = 'fa-exchange-alt'; color = 'text-red-500'; amountPrefix = '- ৳'; title = 'ট্রান্সফার'; break;
+                        case 'tournament_join': icon = 'fa-trophy'; color = 'text-red-500'; amountPrefix = '- ৳'; title = 'টুর্নামেন্ট ফি'; break;
+                        case 'tournament_prize': icon = 'fa-trophy'; color = 'text-green-500'; amountPrefix = '+ ৳'; title = 'টুর্নামেন্ট প্রাইজ'; break;
+                    }
+
+                    const date = tx.timestamp ? tx.timestamp.toDate() : new Date();
+                    const time = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+                    const dateStr = date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' });
+
+                    const row = document.createElement('div');
+                    row.className = 'flex items-center p-3 bg-white rounded-lg shadow-sm';
+
+                    const left = document.createElement('div');
+                    left.className = `w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center ${color} font-bold mr-4`;
+                    left.innerHTML = `<i class="fas ${icon}"></i>`;
+
+                    const info = document.createElement('div');
+                    info.className = 'flex-grow';
+                    const titleP = document.createElement('p');
+                    titleP.className = 'font-semibold text-gray-800';
+                    titleP.textContent = title;
+                    const timeP = document.createElement('p');
+                    timeP.className = 'text-xs text-gray-500';
+                    timeP.textContent = `${time}, ${dateStr}`;
+                    info.append(titleP, timeP);
+
+                    const amt = document.createElement('div');
+                    amt.className = 'text-right font-bold';
+                    const amount = Number(tx.amount) || 0;
+                    amt.textContent = `${amountPrefix}${Math.abs(amount).toFixed(2)}`;
+
+                    row.append(left, info, amt);
+                    listEl.appendChild(row);
+                });
+            } catch (e) {
+                console.error(e);
+                const listEl = container.querySelector('#recent-transactions-list');
+                if (listEl) listEl.innerHTML = '<p class="text-center text-red-500">লেনদেন লোড করতে সমস্যা হয়েছে।</p>';
+            }
+        }
+        
         // [SECURE] Render the statement page
         function renderStatementPage(transactions) {
             mainContent.innerHTML = ''; // Clear previous content
