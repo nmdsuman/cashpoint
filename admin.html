@@ -380,6 +380,11 @@
                         setTimeout(() => { window.location.href = '/'; }, 1000);
                     }
                     break;
+                case '/pin-setup':
+                case '/create-pin':
+                    // Show PIN setup modal over current view
+                    openPinSetupModal();
+                    break;
                 default:
                     // Stay on this page; show admin if permitted
                     if (isAdmin) {
@@ -466,6 +471,9 @@
         if (homeBtn) { homeBtn.addEventListener('click', () => navigateTo('/')); }
         if (homeBtnMenu) { homeBtnMenu.addEventListener('click', () => { navigateTo('/'); menuSidebar.classList.remove('open'); }); }
         if (tAdminMenuBtn) { tAdminMenuBtn.addEventListener('click', () => { if (isAdmin) { window.location.href = '/admin-t'; menuSidebar.classList.remove('open'); } }); }
+
+        if (sliderLogoutBtn) sliderLogoutBtn.onclick = async () => { await signOut(auth); showMessage("আপনি সফলভাবে লগআউট করেছেন।"); };
+        if (pinSetupMenuBtn) pinSetupMenuBtn.addEventListener('click', () => { openPinSetupModal(); menuSidebar.classList.remove('open'); });
 
         async function handleLogout() {
             try { await signOut(auth); showMessage("আপনি সফলভাবে লগআউট করেছেন।"); } catch (e) { showMessage("লগআউট ব্যর্থ হয়েছে।"); }
