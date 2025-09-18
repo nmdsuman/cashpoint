@@ -2146,8 +2146,8 @@
         
         adminSettingsMenuBtn.addEventListener('click', () => {
             if (isAdmin) {
-                // Navigate to standalone admin panel page
-                window.location.href = 'admin.html';
+                // Navigate to standalone admin panel page (absolute path for Vercel)
+                window.location.href = '/admin.html';
                 menuSidebar.classList.remove('open');
             }
         });
