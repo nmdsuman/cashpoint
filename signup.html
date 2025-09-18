@@ -6,19 +6,34 @@
   <title>CashPoint - সাইন আপ</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-100 min-h-screen flex items-center justify-center">
-  <div class="w-full max-w-sm bg-white rounded-2xl shadow p-6">
-    <h1 class="text-2xl font-bold text-center mb-6">সাইন আপ</h1>
-    <form id="signup-form" class="space-y-4">
-      <input id="name" type="text" placeholder="আপনার নাম" class="w-full p-3 border rounded-xl" required />
-      <input id="email" type="email" placeholder="ইমেইল" class="w-full p-3 border rounded-xl" required />
-      <input id="password" type="password" placeholder="পাসওয়ার্ড" class="w-full p-3 border rounded-xl" required />
-      <button type="submit" class="w-full py-3 bg-pink-600 hover:bg-pink-700 text-white font-bold rounded-xl">অ্যাকাউন্ট তৈরি করুন</button>
-    </form>
-    <div class="flex items-center justify-between mt-4 text-sm">
-      <a href="/login" class="text-blue-600">ইতিমধ্যেই অ্যাকাউন্ট আছে?</a>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+  <div class="w-full max-w-sm bg-white rounded-2xl shadow-xl overflow-hidden">
+    <div class="gradient-bg text-white py-6 px-6 text-center">
+      <img src="https://placehold.co/64x64/E2136E/FFFFFF?text=CP" alt="CashPoint" class="w-16 h-16 rounded-full mx-auto mb-2 bg-white"/>
+      <h1 class="text-xl font-bold">CashPoint</h1>
+      <p class="text-white/90 text-sm">নতুন অ্যাকাউন্ট তৈরি করুন</p>
     </div>
-    <p id="msg" class="mt-4 text-center text-sm text-gray-600"></p>
+    <div class="p-6">
+      <form id="signup-form" class="space-y-4">
+        <div>
+          <label for="name" class="block text-sm text-gray-600 mb-1">নাম</label>
+          <input id="name" type="text" placeholder="আপনার নাম" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500" required />
+        </div>
+        <div>
+          <label for="email" class="block text-sm text-gray-600 mb-1">ইমেইল</label>
+          <input id="email" type="email" placeholder="you@example.com" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500" required />
+        </div>
+        <div>
+          <label for="password" class="block text-sm text-gray-600 mb-1">পাসওয়ার্ড</label>
+          <input id="password" type="password" placeholder="********" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500" required />
+        </div>
+        <button type="submit" class="w-full py-3 bg-pink-600 hover:bg-pink-700 text-white font-bold rounded-xl transition">অ্যাকাউন্ট তৈরি করুন</button>
+      </form>
+      <div class="mt-4 text-center text-sm">
+        <a href="/login" class="text-pink-600 hover:underline">ইতিমধ্যেই অ্যাকাউন্ট আছে? লগইন করুন</a>
+      </div>
+      <p id="msg" class="mt-4 text-center text-sm text-gray-600"></p>
+    </div>
   </div>
 
   <script type="module">
