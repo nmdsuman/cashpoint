@@ -840,21 +840,7 @@
                 gridDiv.appendChild(actionDiv);
             });
             
-            // Pending requests section (styled)
-            const pendingSectionDiv = document.createElement('div');
-            pendingSectionDiv.id = 'pending-requests-section';
-            pendingSectionDiv.className = 'w-full mt-6 pt-4 border-t border-gray-200 space-y-3';
-            const pendingH3 = document.createElement('h3');
-            pendingH3.className = 'text-lg sm:text-xl font-bold text-gray-800 border-b border-gray-200 pb-2';
-            pendingH3.textContent = 'অপেক্ষমাণ অনুরোধ';
-            const requestsListDiv = document.createElement('div');
-            requestsListDiv.id = 'requests-list';
-            requestsListDiv.className = 'space-y-2';
-            const noRequestsPara = document.createElement('p');
-            noRequestsPara.className = 'text-center text-gray-500';
-            noRequestsPara.textContent = 'কোনো অনুরোধ নেই।';
-            requestsListDiv.appendChild(noRequestsPara);
-            pendingSectionDiv.append(pendingH3, requestsListDiv);
+            // Pending requests section removed as per requirement
             
             // Recent transactions section
             const recentSectionDiv = document.createElement('div');
@@ -872,11 +858,9 @@
             recentListDiv.appendChild(noRecentPara);
             recentSectionDiv.append(recentH3, recentListDiv);
             
-            container.append(userInfoDiv, balanceDiv, gridDiv, pendingSectionDiv, recentSectionDiv);
+            container.append(userInfoDiv, balanceDiv, gridDiv, recentSectionDiv);
             mainContent.appendChild(container);
 
-            // Render pending requests
-            renderPendingRequests(pendingSectionDiv);
             // Render last 5 transactions
             renderRecentTransactions(recentSectionDiv);
         }
@@ -2073,58 +2057,7 @@
             showLoading(false);
         });
 
-        // [SECURE] Renders pending requests on the dashboard
-        async function renderPendingRequests(container) {
-            const addMoneyQuery = query(collection(db, `artifacts/${appId}/add_money_requests`), where("userId", "==", currentUser.uid), where("status", "==", "pending"));
-            const transferMoneyQuery = query(collection(db, `artifacts/${appId}/money_transfer_requests`), where("userId", "==", currentUser.uid), where("status", "==", "pending"));
-
-            const [addMoneySnapshot, transferMoneySnapshot] = await Promise.all([getDocs(addMoneyQuery), getDocs(transferMoneyQuery)]);
-
-            const requestsListEl = container.querySelector('#requests-list');
-            requestsListEl.innerHTML = '';
-            
-            let hasRequests = false;
-
-            addMoneySnapshot.forEach(doc => {
-                hasRequests = true;
-                const request = doc.data();
-                const requestEl = document.createElement('div');
-                requestEl.className = 'p-3 bg-white rounded-lg shadow-sm flex items-center justify-between';
-
-                const requestText = document.createElement('p');
-                requestText.className = 'text-sm text-gray-600';
-                requestText.textContent = `বিকাশ থেকে ৳ ${request.amount} পাঠানো হয়েছে।`;
-
-                const statusText = document.createElement('p');
-                statusText.className = 'text-xs font-semibold text-orange-500';
-                statusText.textContent = 'অপেক্ষমাণ';
-
-                requestEl.append(requestText, statusText);
-                requestsListEl.appendChild(requestEl);
-            });
-            
-            transferMoneySnapshot.forEach(doc => {
-                hasRequests = true;
-                const transfer = doc.data();
-                const transferEl = document.createElement('div');
-                transferEl.className = 'p-3 bg-white rounded-lg shadow-sm flex items-center justify-between';
-
-                const transferText = document.createElement('p');
-                transferText.className = 'text-sm text-gray-600';
-                transferText.textContent = `ট্রান্সফার রিকোয়েস্ট: ৳ ${transfer.amount} (${transfer.method})`;
-
-                const statusText = document.createElement('p');
-                statusText.className = 'text-xs font-semibold text-orange-500';
-                statusText.textContent = 'অপেক্ষমাণ';
-
-                transferEl.append(transferText, statusText);
-                requestsListEl.appendChild(transferEl);
-            });
-
-            if (!hasRequests) {
-                requestsListEl.innerHTML = '<p class="text-center text-gray-500">কোনো অনুরোধ নেই।</p>';
-            }
-        }
+        // Pending requests section removed
         
         // [SECURE] আলাদা 'আমার প্রোফাইল' পেজ
         function renderMyProfile(profileData = {}) {
