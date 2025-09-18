@@ -999,255 +999,73 @@
             }
         };
 
-        // Function to open proof modal
-        const openPlayerProofModal = (name, idValue, note, imageUrl) => {
-            const modalContent = `
-                <style>
-                    .proof-modal {
-                        display: none;
-                        position: fixed;
-                        z-index: 1000;
-                        left: 0;
-                        top: 0;
-                        width: 100%;
-                        height: 100%;
-                        background-color: rgba(0,0,0,0.7);
-                        overflow: auto;
-                        align-items: center;
-                        justify-content: center;
-                    }
-                    .proof-modal-content {
-                        background-color: #fefefe;
-                        margin: auto;
-                        padding: 20px;
-                        border: 1px solid #888;
-                        width: 90%;
-                        max-width: 600px;
-                        border-radius: 8px;
-                        position: relative;
-                    }
-                    .proof-image-container {
-                        width: 100%;
-                        max-height: 70vh;
-                        overflow: hidden;
-                        display: flex;
-                        justify-content: center;
-                        align-items: center;
-                        margin: 10px 0;
-                    }
-                    .proof-image {
-                        max-width: 100%;
-                        max-height: 65vh;
-                        object-fit: contain;
-                        border: 1px solid #ddd;
-                        border-radius: 4px;
-                    }
-                    .proof-close {
-                        color: #aaa;
-                        position: absolute;
-                        top: 10px;
-                        right: 15px;
-                        font-size: 28px;
-                        font-weight: bold;
-                        cursor: pointer;
-                    }
-                    .proof-close:hover {
-                        color: black;
-                    }
-                    .proof-details {
-                        margin: 15px 0;
-                        padding: 10px;
-                        background-color: #f9f9f9;
-                        border-radius: 4px;
-                    }
-                    .proof-details p {
-                        margin: 5px 0;
-                    }
-                </style>
-                <div class="proof-modal" id="proofModal">
-                    <div class="proof-modal-content">
-                        <span class="proof-close">&times;</span>
-                        <h3 class="text-lg font-semibold mb-3">প্রুফ ছবি</h3>
-                        <div class="proof-details">
-                            <p><strong>নাম:</strong> ${name}</p>
-                            ${idValue ? `<p><strong>আইডি:</strong> ${idValue}</p>` : ''}
-                            ${note ? `<p><strong>নোট:</strong> ${note}</p>` : ''}
-                        </div>
-                        <div class="proof-image-container">
-                            ${imageUrl ? `<img src="${imageUrl}" alt="প্রুফ ছবি" class="proof-image">` : '<p>কোনো ছবি পাওয়া যায়নি</p>'}
-                        </div>
-                    </div>
-                </div>
-                <script>
-                    const modal = document.getElementById('proofModal');
-                    const span = document.getElementsByClassName('proof-close')[0];
-                    
-                    // Show the modal
-                    modal.style.display = 'flex';
-                    
-                    // Close when clicking the X
-                    span.onclick = function() {
-                        modal.style.display = 'none';
-                    }
-                    
-                    // Close when clicking outside the modal
-                    window.onclick = function(event) {
-                        if (event.target == modal) {
-                            modal.style.display = 'none';
-                        }
-                    }
-                    
-                    // Close with Escape key
-                    document.addEventListener('keydown', function(event) {
-                        if (event.key === 'Escape') {
-                            modal.style.display = 'none';
-                        }
-                    });
-                </script>
-            `;
-            
-            // Create a temporary container to render the modal
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = modalContent;
-            document.body.appendChild(tempDiv);
-            
-            // Clean up the temporary container when the modal is closed
-            const modal = tempDiv.querySelector('#proofModal');
-            const closeHandler = () => {
-                document.body.removeChild(tempDiv);
-                document.removeEventListener('keydown', escapeHandler);
-            };
-            
-            const escapeHandler = (event) => {
-                if (event.key === 'Escape') {
-                    closeHandler();
-                }
-            };
-            
-            modal.querySelector('.proof-close').addEventListener('click', closeHandler);
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) {
-                    closeHandler();
-                }
-            });
-            
-            document.addEventListener('keydown', escapeHandler);
-        };
-
         const viewPlayersModal = async (postId) => {
             loadingEl.classList.remove('hidden');
-            try {
-                const postRef = doc(db, 'artifacts', appId, 'public', 'data', 'posts', postId);
-                const participantsRef = collection(postRef, 'participants');
+            const postRef = doc(db, 'artifacts', appId, 'public', 'data', 'posts', postId);
+            const participantsRef = collection(postRef, 'participants');
 
-                const [postSnap, participantsSnap] = await Promise.all([
+            try {
+                const [postDoc, participantsSnapshot] = await Promise.all([
                     getDoc(postRef),
                     getDocs(participantsRef)
                 ]);
 
-                if (!postSnap.exists()) {
-                    throw new Error('টুর্নামেন্ট খুঁজে পাওয়া যায়নি!');
+                if (!postDoc.exists()) throw new Error("Tournament not found!");
+
+                const postData = postDoc.data();
+                const pendingPrizes = postData.pendingPrizes || {};
+
+                let playersHTML = '';
+                if (!participantsSnapshot.empty) {
+                    playersHTML = '<div class="space-y-3">';
+                    participantsSnapshot.forEach(doc => {
+                        const player = doc.data();
+                        const savedPrize = pendingPrizes[doc.id] || '';
+                        const hasProof = !!(player?.note) || !!(player?.screenshotUrl);
+                        playersHTML += `
+                            <div class="bg-slate-100 p-3 rounded-lg flex flex-col gap-2">
+                                <div>
+                                    <p class="font-semibold">${player.fullName}</p>
+                                    <p class="text-xs text-gray-500">ID: ${player.idValue}</p>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <span class="font-semibold text-gray-600">৳</span>
+                                    <input type="number" min="0" value="${savedPrize}" data-userid="${doc.id}" 
+                                           class="prize-input w-24 px-2 py-1 border border-gray-300 rounded-md text-right" 
+                                           placeholder="_ _ _">
+                                </div>
+                            </div>`;
+                    });
+                    playersHTML += '</div>';
                 }
 
-                const postData = postSnap.data();
-                const participants = [];
-                participantsSnap.forEach(doc => {
-                    participants.push({ id: doc.id, ...doc.data() });
-                });
-
-                // Sort participants by join time (oldest first)
-                participants.sort((a, b) => a.joinedAt?.toDate() - b.joinedAt?.toDate());
-
-                let modalContent = `
-                    <style>
-                        .participant-list {
-                            max-height: 60vh;
-                            overflow-y: auto;
-                            margin: 15px 0;
-                            padding-right: 10px;
-                        }
-                        .participant-item {
-                            display: flex;
-                            justify-content: space-between;
-                            align-items: center;
-                            padding: 10px;
-                            margin: 5px 0;
-                            background: white;
-                            border-radius: 8px;
-                            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-                        }
-                        .participant-info {
-                            flex: 1;
-                        }
-                        .participant-name {
-                            font-weight: 600;
-                            margin-bottom: 3px;
-                        }
-                        .participant-id {
-                            font-size: 0.85em;
-                            color: #666;
-                        }
-                        .proof-btn {
-                            background-color: #4CAF50;
-                            color: white;
-                            border: none;
-                            padding: 5px 10px;
-                            border-radius: 4px;
-                            cursor: pointer;
-                            font-size: 0.85em;
-                            margin-left: 10px;
-                        }
-                        .proof-btn:hover {
-                            background-color: #45a049;
-                        }
-                        .no-proof {
-                            color: #888;
-                            font-style: italic;
-                            font-size: 0.9em;
-                        }
-                    </style>
-                    <h3 class="text-lg font-semibold mb-4">${postData.contestName || 'টুর্নামেন্ট'} - অংশগ্রহণকারী (${participants.length})</h3>
-                    <div class="participant-list">
-                        ${participants.length > 0 
-                            ? participants.map((p, index) => `
-                                <div class="participant-item">
-                                    <div class="participant-info">
-                                        <div class="participant-name">${p.fullName || 'নামহীন'} #${index + 1}</div>
-                                        ${p.idValue ? `<div class="participant-id">${p.idValue}</div>` : ''}
-                                    </div>
-                                    ${p.screenshotUrl 
-                                        ? `<button class="proof-btn" onclick="openPlayerProofModal('${p.fullName || 'নামহীন'}', '${p.idValue || ''}', '${p.note || ''}', '${p.screenshotUrl}')">
-                                            প্রুফ দেখুন
-                                          </button>`
-                                        : `<span class="no-proof">কোনো প্রুফ নেই</span>`
-                                    }
-                                </div>`
-                            ).join('')
-                            : '<p class="text-center text-gray-500 py-4">কোনো অংশগ্রহণকারী নেই</p>'
-                        }
+                const modalContent = `
+                    <div class="space-y-3">
+                        ${playersHTML}
                     </div>
-                    <div class="flex justify-end mt-4">
-                        <button onclick="document.querySelector('.modal').classList.remove('show')" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
-                            বন্ধ করুন
-                        </button>
-                    </div>
+                    <form id="prize-distribution-form" data-post-id="${postId}">
+                        <div class="flex items-center space-x-2 mt-4">
+                            <button type="button" id="save-progress-btn" class="w-full bg-blue-500 text-white font-semibold py-2 rounded-lg hover:bg-blue-600 transition">Save Progress</button>
+                            <button type="button" id="confirm-distribute-btn" class="w-full bg-green-600 text-white font-semibold py-2 rounded-lg hover:bg-green-700 transition">Confirm & Distribute</button>
+                        </div>
+                    </form>
                 `;
+                renderModal('managePrizesModal', 'পুরস্কার ম্যানেজ করুন', modalContent);
 
-                renderModal('viewPlayersModal', 'অংশগ্রহণকারীরা', modalContent);
+                document.getElementById('save-progress-btn').onclick = () => handleSaveDistribution(postId);
+                document.getElementById('confirm-distribute-btn').onclick = () => handleConfirmDistribution(postId);
 
-                // Add event listener for Escape key to close the modal
-                document.addEventListener('keydown', function(event) {
-                    if (event.key === 'Escape') {
-                        document.querySelector('.modal').classList.remove('show');
-                    }
+                // Wire up view-proof buttons
+                document.querySelectorAll('#managePrizesModal .view-proof-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const el = e.currentTarget;
+                        const name = el.getAttribute('data-fullname') || 'Unknown';
+                        const idValue = el.getAttribute('data-idvalue') || '';
+                        const note = el.getAttribute('data-note') || '';
+                        const url = el.getAttribute('data-screenshoturl') || '';
+                        openPlayerProofModal(name, idValue, note, url);
+                    });
                 });
-
-            } catch (error) {
-                showMessage(error.message, 'error');
-            } finally {
-                loadingEl.classList.add('hidden');
-            }
-        };
 
             } catch (error) {
                 showMessage(error.message, 'error');
