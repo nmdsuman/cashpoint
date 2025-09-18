@@ -54,7 +54,22 @@
       try {
         statusEl.textContent = 'অ্যাডমিন যাচাই করা হচ্ছে...';
         const tokenResult = await user.getIdTokenResult(true);
-        const isAdmin = !!tokenResult.claims.admin;
+        let isAdmin = !!tokenResult.claims.admin;
+
+        // Fallback: profile isAdmin (users/{uid}.isAdmin)
+        if (!isAdmin) {
+          try {
+            const { getFirestore, doc, getDoc } = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js');
+            const db2 = getFirestore();
+            const snap = await getDoc(doc(db2, `artifacts/${appId}/users/${user.uid}`));
+            if (snap.exists() && snap.data().isAdmin === true) {
+              isAdmin = true;
+            }
+          } catch (e) {
+            console.error('Fallback profile check failed', e);
+          }
+        }
+
         if (isAdmin) {
           statusEl.textContent = 'রিডাইরেক্ট করা হচ্ছে...';
           window.location.href = '/turnament';
