@@ -404,12 +404,27 @@
                     console.error('Failed to read token claims', e);
                     isAdmin = false;
                 }
+
+                // Fallback: if claim not set, check Firestore profile isAdmin once
+                if (!isAdmin) {
+                    try {
+                        const profSnap = await getDoc(doc(db, `artifacts/${appId}/users/${user.uid}`));
+                        if (profSnap.exists()) {
+                            const pdata = profSnap.data();
+                            if (pdata && pdata.isAdmin === true) {
+                                isAdmin = true;
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Profile admin fallback check failed', e);
+                    }
+                }
                 adminSettingsMenuBtn.classList.toggle('hidden', !isAdmin);
                 if (tAdminMenuBtn) tAdminMenuBtn.classList.toggle('hidden', !isAdmin);
                 // Route immediately based on claims (don't wait for Firestore)
                 router();
 
-                // Keep profile snapshot only for sidebar data, do not override isAdmin from Firestore
+                // Keep profile snapshot only for sidebar data, do not override isAdmin once decided
                 const profileDocRef = doc(db, `artifacts/${appId}/users/${user.uid}`);
                 if (unsubscribeFromProfile) unsubscribeFromProfile();
                 unsubscribeFromProfile = onSnapshot(profileDocRef, (docSnap) => {
