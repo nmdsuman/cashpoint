@@ -218,13 +218,19 @@
                     }
                     const userData = docSnap.data();
                     if (userData) {
+                        // Combine Auth custom claims with Firestore field for robust admin detection
+                        let hasClaimAdmin = false;
+                        try {
+                            const tokenResult = await auth.currentUser.getIdTokenResult(true);
+                            hasClaimAdmin = !!tokenResult.claims.admin;
+                        } catch (_) { /* ignore */ }
                         document.getElementById('welcome-message').textContent = userData.fullName || 'ব্যবহারকারী';
                         document.getElementById('wallet-balance').textContent = `৳${(userData.balance || 0).toFixed(2)}`;
                         // Update slider header info
                         if (sliderUserNameEl) sliderUserNameEl.textContent = userData.fullName || 'ব্যবহারকারী';
                         if (sliderWalletBalanceEl) sliderWalletBalanceEl.textContent = `৳${(userData.balance || 0).toFixed(2)}`;
                         // Header admin buttons visible only for admins
-                        const isAdminUser = userData.isAdmin === true;
+                        const isAdminUser = hasClaimAdmin || (userData.isAdmin === true);
                         if (isAdminUser) {
                             roleSwitchEl.classList.remove('hidden');
                         } else {
@@ -361,7 +367,13 @@
 
             const postsCollection = collection(db, 'artifacts', appId, 'public', 'data', 'posts');
             const userDoc = await getDoc(doc(db, 'artifacts', appId, 'users', currentUser.uid));
-            const isAdminUser = userDoc.data()?.isAdmin === true;
+            // Combine token claim with Firestore flag for admin detection
+            let claimAdmin = false;
+            try {
+                const tokenResult = await auth.currentUser.getIdTokenResult(true);
+                claimAdmin = !!tokenResult.claims.admin;
+            } catch (_) { /* ignore */ }
+            const isAdminUser = claimAdmin || (userDoc.data()?.isAdmin === true);
             const isAdminRoute = window.location.pathname === '/admin-t';
             const currentUserRole = (isAdminUser && isAdminRoute) ? 'admin' : 'user';
 
