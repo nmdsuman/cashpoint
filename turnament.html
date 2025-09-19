@@ -912,10 +912,24 @@
                         if (!draftDoc.exists()) return showMessage('ড্রাফট পাওয়া যায়নি!', 'error');
                         const draft = draftDoc.data();
 
-                        // Populate form
-                        const form = document.querySelector(`${modalSelector} form`);
-                        if (!form) return;
+                        // Ensure target form modal exists (drafts modal replaced the container)
                         const data = draft.data || {};
+                        // Close drafts list first
+                        document.querySelector('#draftsModal .close-button')?.click();
+
+                        // If the target form is not present, recreate it
+                        let form = document.querySelector(`${modalSelector} form`);
+                        if (!form) {
+                            if (modalSelector === '#createPostModal') {
+                                openCreatePostModal();
+                            }
+                            // Wait a tick for the modal to render
+                            await new Promise(r => setTimeout(r, 0));
+                            form = document.querySelector(`${modalSelector} form`);
+                        }
+                        if (!form) return; // safety
+
+                        // Populate form fields from draft
                         for (const key in data) {
                             if (key !== 'prizes' && form.elements[key]) {
                                 form.elements[key].value = data[key];
@@ -931,8 +945,6 @@
                             }
                         }
                         showMessage('ড্রাফট লোড হয়েছে।', 'success');
-                        // Close drafts modal after loading
-                        document.querySelector('#draftsModal .close-button')?.click();
                     });
                 });
 
