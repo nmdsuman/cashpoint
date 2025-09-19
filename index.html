@@ -520,7 +520,7 @@
                 </div>
             `;
 
-            document.getElementById('setup-new-pin-btn').addEventListener('click', () => navigateTo('/create-pin'));
+            document.getElementById('setup-new-pin-btn').addEventListener('click', () => navigateTo('/pin-create'));
             document.getElementById('change-pin-btn').addEventListener('click', () => navigateTo('/change-pin'));
             document.getElementById('forgot-pin-btn').addEventListener('click', () => navigateTo('/pin-forgot'));
             document.getElementById('back-to-dashboard-btn').addEventListener('click', () => {
@@ -825,27 +825,27 @@
                 gridDiv.appendChild(actionDiv);
             });
             
-            // Pending requests section
-            const pendingSectionDiv = document.createElement('div');
-            pendingSectionDiv.id = 'pending-requests-section';
-            pendingSectionDiv.className = 'w-full space-y-4';
-            const pendingH3 = document.createElement('h3');
-            pendingH3.className = 'text-xl font-bold text-gray-800 border-b pb-2';
-            pendingH3.textContent = 'অপেক্ষমাণ অনুরোধ';
-            const requestsListDiv = document.createElement('div');
-            requestsListDiv.id = 'requests-list';
-            requestsListDiv.className = 'space-y-3';
-            const noRequestsPara = document.createElement('p');
-            noRequestsPara.className = 'text-center text-gray-500';
-            noRequestsPara.textContent = 'কোনো অনুরোধ নেই।';
-            requestsListDiv.appendChild(noRequestsPara);
-            pendingSectionDiv.append(pendingH3, requestsListDiv);
+            // Recent transactions section
+            const recentSectionDiv = document.createElement('div');
+            recentSectionDiv.id = 'recent-transactions-section';
+            recentSectionDiv.className = 'w-full space-y-4';
+            const recentH3 = document.createElement('h3');
+            recentH3.className = 'text-xl font-bold text-gray-800 border-b pb-2';
+            recentH3.textContent = 'সাম্প্রতিক লেনদেন';
+            const recentListDiv = document.createElement('div');
+            recentListDiv.id = 'recent-transactions-list';
+            recentListDiv.className = 'space-y-2';
+            const noRecentPara = document.createElement('p');
+            noRecentPara.className = 'text-center text-gray-500';
+            noRecentPara.textContent = 'কোনো লেনদেন নেই।';
+            recentListDiv.appendChild(noRecentPara);
+            recentSectionDiv.append(recentH3, recentListDiv);
             
-            container.append(userInfoDiv, balanceDiv, gridDiv, pendingSectionDiv);
+            container.append(userInfoDiv, balanceDiv, gridDiv, recentSectionDiv);
             mainContent.appendChild(container);
 
-            // Render pending requests
-            renderPendingRequests(pendingSectionDiv);
+            // Render recent transactions (last 5)
+            renderRecentTransactions(recentSectionDiv);
         }
         
         // [SECURE] Render the statement page
@@ -1087,6 +1087,143 @@
                 setTimeout(() => e.target.classList.add('hidden'), 200);
             }
         });
+        
+        // [SECURE] Render last 5 transactions on the dashboard
+        async function renderRecentTransactions(container) {
+            const listEl = container.querySelector('#recent-transactions-list');
+            if (!currentUser) return;
+            try {
+                const txCollectionRef = collection(db, `artifacts/${appId}/users/${currentUser.uid}/transactions`);
+                const q = query(txCollectionRef);
+                const querySnapshot = await getDocs(q);
+                const transactions = [];
+                querySnapshot.forEach(docSnap => transactions.push({ id: docSnap.id, ...docSnap.data() }));
+                transactions.sort((a, b) => (b.timestamp?.toDate() || 0) - (a.timestamp?.toDate() || 0));
+                const lastFive = transactions.slice(0, 5);
+
+                listEl.innerHTML = '';
+                if (lastFive.length === 0) {
+                    const p = document.createElement('p');
+                    p.className = 'text-center text-gray-500';
+                    p.textContent = 'কোনো লেনদেন নেই।';
+                    listEl.appendChild(p);
+                    return;
+                }
+
+                lastFive.forEach(tx => {
+                    const txEl = document.createElement('div');
+                    txEl.className = 'flex items-center p-3 bg-white rounded-lg shadow-sm cursor-pointer hover:bg-gray-50';
+
+                    let colorClass, amountPrefix, title = '';
+                    let firstChar = 'T';
+                    let statusText, statusColorClass;
+
+                    switch (tx.status) {
+                        case 'pending': statusText = 'অপেক্ষমাণ'; statusColorClass = 'text-orange-500'; break;
+                        case 'rejected': statusText = 'ব্যর্থ'; statusColorClass = 'text-red-500'; break;
+                        default: statusText = 'সফল'; statusColorClass = 'text-green-500'; break;
+                    }
+
+                    switch (tx.type) {
+                        case 'deposit':
+                            colorClass = 'text-green-500';
+                            amountPrefix = '+ ৳';
+                            title = 'অ্যাড মানি';
+                            firstChar = (tx.description || 'A').charAt(0);
+                            break;
+                        case 'send':
+                            colorClass = 'text-red-500';
+                            amountPrefix = '- ৳';
+                            title = 'সেন্ড মানি';
+                            firstChar = (tx.description || 'S').charAt(0);
+                            break;
+                        case 'receive':
+                            colorClass = 'text-green-500';
+                            amountPrefix = '+ ৳';
+                            title = 'রিসিভ মানি';
+                            firstChar = (tx.description || 'R').charAt(0);
+                            break;
+                        case 'transfer':
+                            colorClass = 'text-red-500';
+                            amountPrefix = '- ৳';
+                            title = 'ট্রান্সফার';
+                            firstChar = 'T';
+                            break;
+                        case 'tournament_join':
+                            colorClass = 'text-red-500';
+                            amountPrefix = '- ৳';
+                            title = 'টুর্নামেন্ট ফি';
+                            firstChar = 'T';
+                            break;
+                        case 'tournament_prize':
+                            colorClass = 'text-green-500';
+                            amountPrefix = '+ ৳';
+                            title = 'টুর্নামেন্ট প্রাইজ';
+                            firstChar = 'T';
+                            break;
+                        default:
+                            colorClass = 'text-gray-600';
+                            amountPrefix = (Number(tx.amount) >= 0 ? '+ ৳' : '- ৳');
+                            title = 'লেনদেন';
+                            firstChar = 'T';
+                            break;
+                    }
+
+                    const date = tx.timestamp ? tx.timestamp.toDate() : new Date();
+                    const time = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+                    const dateStr = date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' });
+
+                    const initialDiv = document.createElement('div');
+                    initialDiv.className = 'w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-cashpoint-pink font-bold mr-4';
+                    initialDiv.textContent = firstChar.toUpperCase();
+
+                    const infoDiv = document.createElement('div');
+                    infoDiv.className = 'flex-grow';
+                    const titleP = document.createElement('p');
+                    titleP.className = 'font-semibold text-gray-800';
+                    titleP.textContent = title;
+                    const trxIdP = document.createElement('p');
+                    trxIdP.className = 'text-xs text-gray-500';
+                    trxIdP.textContent = `TrxID: ${tx.transactionId || 'N/A'}`;
+                    const statusP = document.createElement('p');
+                    statusP.className = `text-xs font-semibold ${statusColorClass}`;
+                    statusP.textContent = statusText;
+                    infoDiv.append(titleP, trxIdP, statusP);
+
+                    const amountDiv = document.createElement('div');
+                    amountDiv.className = 'text-right';
+                    const amountP = document.createElement('p');
+                    amountP.className = `font-bold ${colorClass}`;
+                    amountP.textContent = `${amountPrefix}${Number(tx.amount).toFixed(2)}`;
+                    const timeP = document.createElement('p');
+                    timeP.className = 'text-xs text-gray-400';
+                    timeP.textContent = `${time} ${dateStr}`;
+                    amountDiv.append(amountP, timeP);
+
+                    const chevronDiv = document.createElement('div');
+                    chevronDiv.className = 'ml-3 text-gray-400';
+                    const chevronI = document.createElement('i');
+                    chevronI.className = 'fas fa-chevron-right';
+                    chevronDiv.appendChild(chevronI);
+
+                    txEl.append(initialDiv, infoDiv, amountDiv, chevronDiv);
+                    txEl.addEventListener('click', () => {
+                        // Reuse the detailed modal renderer for consistency
+                        let amtPrefix = amountPrefix;
+                        let clrClass = colorClass;
+                        showTransactionDetails(tx, title, amtPrefix, clrClass);
+                    });
+                    listEl.appendChild(txEl);
+                });
+            } catch (error) {
+                console.error('Error loading recent transactions:', error);
+                listEl.innerHTML = '';
+                const p = document.createElement('p');
+                p.className = 'text-center text-gray-500';
+                p.textContent = 'লেনদেন লোড করতে সমস্যা হয়েছে।';
+                listEl.appendChild(p);
+            }
+        }
         
         // Render money transfer options (SAFE - No user-generated content)
         function showTransferOptions() {
@@ -2340,7 +2477,7 @@
                         renderMyProfile(profileData);
                     }
                     break;
-                case '/create-pin':
+                case '/pin-create':
                     if(user) renderSetupPinForm();
                     break;
                 case '/change-pin':
