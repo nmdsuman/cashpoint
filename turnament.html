@@ -6,7 +6,6 @@
     <title>Gaming Platform - খেলুন ও জিতুন</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
-    <!-- Vercel Web Analytics -->
     <script defer src="/_vercel/insights/script.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
@@ -74,7 +73,6 @@
                          <p class="text-xs text-gray-500">ব্যালেন্স</p>
                          <p id="wallet-balance" class="font-bold text-green-600">৳০.০০</p>
                     </div>
-                    <!-- Admin quick switches (visible only for admins) -->
                     <div id="role-switch" class="hidden bg-slate-200 rounded-full p-1 flex items-center space-x-1">
                         <button id="btn-tournament-admin" class="px-3 py-1 text-xs font-semibold rounded-full bg-white text-gray-800">Tournament Admin</button>
                         <button id="btn-cash-admin" class="px-3 py-1 text-xs font-semibold rounded-full bg-white text-gray-800">Cash Admin</button>
@@ -95,7 +93,6 @@
         </div>
 
         <div id="modal-container"></div>
-        <!-- Wallet Slide-over -->
         <div id="wallet-slider" class="fixed inset-y-0 right-0 w-80 max-w-[90vw] bg-white shadow-2xl border-l border-slate-200 z-[120] translate-x-full transition-transform duration-300 ease-in-out flex flex-col">
             <div class="p-4 border-b flex items-center justify-between">
                 <div>
@@ -617,7 +614,48 @@
                 });
                 const data = await resp.json();
                 if (!resp.ok) throw new Error(data.message || 'Join failed');
+                
                 showMessage('সফলভাবে যোগদান করেছেন!', 'success');
+
+                // Instantly update the UI without waiting for Firestore listener
+                const postElement = document.getElementById(`post-${postId}`);
+                if (postElement) {
+                    const contestDetails = JSON.parse(post.contestDetails);
+                    const actionContainer = postElement.querySelector(`#action-container-${postId}`);
+                    
+                    const joinedHTML = `
+                        <div class="mt-4 p-3 rounded-lg bg-blue-50 border border-blue-200 text-sm">
+                            <h4 class="font-bold text-blue-800 mb-2">আপনি জয়েন করেছেন!</h4>
+                            <p class="font-semibold text-blue-800 flex justify-between items-center">রুম আইডি: <code class="bg-blue-200 text-blue-900 px-2 py-1 rounded">${contestDetails.roomId}</code> <i onclick="copyToClipboard('${contestDetails.roomId}')" class="fas fa-copy cursor-pointer text-gray-500 ml-2"></i></p>
+                            <p class="font-semibold text-blue-800 flex justify-between items-center mt-1">পাসওয়ার্ড: <code class="bg-blue-200 text-blue-900 px-2 py-1 rounded">${contestDetails.roomPass}</code> <i onclick="copyToClipboard('${contestDetails.roomPass}')" class="fas fa-copy cursor-pointer text-gray-500 ml-2"></i></p>
+                            <button class="submit-proof-btn mt-3 w-full bg-indigo-600 text-white font-semibold py-2 rounded-lg hover:bg-indigo-700 transition">প্রুফ দিন (ঐচ্ছিক)</button>
+                        </div>
+                    `;
+
+                    if (actionContainer) {
+                        actionContainer.innerHTML = joinedHTML;
+                        const proofBtn = actionContainer.querySelector('.submit-proof-btn');
+                        if (proofBtn) {
+                            proofBtn.onclick = () => openProofModal(postId);
+                        }
+                    }
+
+                    // Also, update the player count
+                    const participantsCountEl = postElement.querySelector('.flex-col.items-end span.text-xs');
+                    if (participantsCountEl) {
+                        const currentCountText = participantsCountEl.textContent.split('/')[0];
+                        const currentCount = parseInt(currentCountText, 10);
+                        if (!isNaN(currentCount)) {
+                           const maxPlayers = contestDetails.maxPlayers;
+                           participantsCountEl.textContent = `${currentCount + 1}/${maxPlayers} জন`;
+                            if (currentCount + 1 >= maxPlayers) {
+                                participantsCountEl.classList.remove('bg-green-100', 'text-green-700');
+                                participantsCountEl.classList.add('bg-red-100', 'text-red-700');
+                            }
+                        }
+                    }
+                }
+
             } catch (error) {
                 showMessage(error.message, 'error');
             } finally {
@@ -811,7 +849,6 @@
                             <label class="text-xs text-gray-600 mb-1">ধরণ <span class="text-red-500">*</span></label>
                             <input type="text" name="contestType" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="যেমন: 1v1, 2v2, Free for All">
                         </div>
-                        <!-- Removed custom ID Type and custom Contest Type fields as requested -->
                         <div class="flex flex-col">
                             <label class="text-xs text-gray-600 mb-1">রুম আইডি</label>
                             <input type="text" name="roomId" placeholder="রুম আইডি" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
@@ -1372,7 +1409,6 @@
                             <label class="text-xs text-gray-600 mb-1">ধরণ <span class="text-red-500">*</span></label>
                             <input type="text" name="contestType" value="${contestDetails.contestType || ''}" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="যেমন: 1v1, 2v2, Free for All">
                         </div>
-                        <!-- Removed custom ID Type and custom Contest Type fields in Edit form as requested -->
                         <div class="flex flex-col">
                             <label class="text-xs text-gray-600 mb-1">রুম আইডি <span class="text-red-500">*</span></label>
                             <input type="text" name="roomId" value="${contestDetails.roomId}" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
