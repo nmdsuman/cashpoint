@@ -239,6 +239,7 @@
         let unsubscribeFromConfig = null;
         let recipientData = {}; // To store recipient info for the transaction
         let isAdmin = false;
+        let hasPinRedirect = false; // one-time redirect guard for pin-create
 
         // অ্যাপের ডিফল্ট কনফিগারেশন। এখন সব Firestore থেকে লোড হবে।
         let appConfig = {
@@ -1816,7 +1817,8 @@
                         balance: 0.00,
                         mobile: '',
                         dob: '',
-                        isAdmin: false
+                        isAdmin: false,
+                        pinHash: 0
                     }, { merge: true });
                      showMessage("স্বাগতম! আপনার প্রোফাইল তৈরি হয়েছে।");
                      navigateTo('/pin-create');
@@ -1865,7 +1867,8 @@
                     balance: 0.00,
                     mobile: '',
                     dob: '',
-                    isAdmin: false
+                    isAdmin: false,
+                    pinHash: 0
                 }, { merge: true });
                 
                 showMessage("অ্যাকাউন্ট তৈরি হয়েছে! এখন প্রোফাইল সম্পূর্ণ করুন।");
@@ -2515,6 +2518,14 @@
                         adminSettingsMenuBtn.classList.toggle('hidden', !isAdmin);
                         if (tAdminMenuBtn) tAdminMenuBtn.classList.toggle('hidden', !isAdmin);
                         renderSidebar(profileData);
+                        // Redirect to pin-create if no PIN set (pinHash missing or 0)
+                        const needsPin = !(typeof profileData.pinHash === 'number' && profileData.pinHash !== 0);
+                        const currentPath = window.location.pathname;
+                        if (needsPin && !hasPinRedirect && currentPath !== '/pin-create') {
+                            hasPinRedirect = true;
+                            navigateTo('/pin-create');
+                            return;
+                        }
                         router();
 
                     } else {
