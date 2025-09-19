@@ -1819,6 +1819,7 @@
                         isAdmin: false
                     }, { merge: true });
                      showMessage("স্বাগতম! আপনার প্রোফাইল তৈরি হয়েছে।");
+                     navigateTo('/pin-create');
                 } else {
                      showMessage("সাইন ইন সফল হয়েছে!");
                 }
@@ -1868,6 +1869,7 @@
                 }, { merge: true });
                 
                 showMessage("অ্যাকাউন্ট তৈরি হয়েছে! এখন প্রোফাইল সম্পূর্ণ করুন।");
+                navigateTo('/pin-create');
             } catch (error) {
                 console.error("Email Sign-up Failed:", error);
                 if (error.code === 'auth/email-already-in-use') {
