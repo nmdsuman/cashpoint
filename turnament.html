@@ -523,9 +523,12 @@
                 adminStatusLabel = `<span class="text-xs font-semibold px-2 py-1 rounded-full ${statusClass}">${statusText}</span>`;
             }
 
-            // Prefer icon image if provided, otherwise fall back to game name text
+            // Prefer icon image if provided; show icon first and name next to it
             const gameLabelHTML = contestDetails.gameIconUrl
-                ? `<img src="${contestDetails.gameIconUrl}" alt="${contestDetails.gameName || 'game'}" class="h-6 w-6 object-contain" onerror="this.style.display='none'">`
+                ? `<div class="flex items-center gap-2 mt-1">
+                        <img src="${contestDetails.gameIconUrl}" alt="${contestDetails.gameName || 'game'}" class="h-8 w-8 object-contain" onerror="this.style.display='none'">
+                        <span class="text-sm font-medium text-gray-500">${contestDetails.gameName || ''}</span>
+                   </div>`
                 : `<span class="text-sm font-medium text-gray-500">${contestDetails.gameName}</span>`;
 
             postElement.innerHTML = `
