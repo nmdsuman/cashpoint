@@ -781,54 +781,54 @@
                     <div class="grid grid-cols-2 gap-3">
                         <div class="flex flex-col">
                             <label class="text-xs text-gray-600 mb-1">টুর্নামেন্টের নাম</label>
-                            <input type="text" name="contestName" placeholder="টুর্নামেন্টের নাম" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                            <input type="text" name="contestName" placeholder="টুর্নামেন্টের নাম" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                         </div>
                         <div class="flex flex-col">
                             <label class="text-xs text-gray-600 mb-1">গেমের নাম</label>
-                            <input type="text" name="gameName" placeholder="গেমের নাম" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                            <input type="text" name="gameName" placeholder="গেমের নাম" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                         </div>
                         <div class="flex flex-col">
-                            <label class="text-xs text-gray-600 mb-1">গেম আইকন লিংক</label>
+                            <label class="text-xs text-gray-600 mb-1">গেম আইকন লিংক (ঐচ্ছিক)</label>
                             <input type="url" name="gameIconUrl" placeholder="https://..." class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" pattern="https?://.*">
                         </div>
                         <div class="flex flex-col">
-                            <label class="text-xs text-gray-600 mb-1">এন্ট্রি ফি (৳) <span class="text-red-500">*</span></label>
+                            <label class="text-xs text-gray-600 mb-1">এন্ট্রি ফি (৳)</label>
                             <input type="number" name="entryFee" placeholder="এন্ট্রি ফি (৳)" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                         </div>
                         <div class="flex flex-col">
-                            <label class="text-xs text-gray-600 mb-1">সর্বোচ্চ প্লেয়ার <span class="text-red-500">*</span></label>
+                            <label class="text-xs text-gray-600 mb-1">সর্বোচ্চ প্লেয়ার</label>
                             <input type="number" name="maxPlayers" placeholder="সর্বোচ্চ প্লেয়ার" required max="50" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                         </div>
                         <div class="flex flex-col col-span-2">
-                            <label class="text-xs text-gray-600 mb-1">শুরুর সময় <span class="text-red-500">*</span></label>
+                            <label class="text-xs text-gray-600 mb-1">শুরুর সময়</label>
                             <input type="datetime-local" name="startTime" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                         </div>
                         <div class="flex flex-col">
-                            <label class="text-xs text-gray-600 mb-1">প্রয়োজনীয় আইডি টাইপ <span class="text-red-500">*</span></label>
+                            <label class="text-xs text-gray-600 mb-1">প্রয়োজনীয় আইডি টাইপ</label>
                             <select name="requiredIdType" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"><option value="Free Fire ID">Free Fire ID</option><option value="Ludo King ID">Ludo King ID</option></select>
                         </div>
                         <div class="flex flex-col">
-                            <label class="text-xs text-gray-600 mb-1">ধরণ <span class="text-red-500">*</span></label>
+                            <label class="text-xs text-gray-600 mb-1">ধরণ</label>
                             <select name="contestType" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"><option value="1v1">1v1</option><option value="2v2">2v2</option><option value="Free for All">Free for All</option></select>
                         </div>
                         <div class="flex flex-col col-span-2">
-                            <label class="text-xs text-gray-600 mb-1">কাস্টম প্রয়োজনীয় আইডি টাইপ</label>
+                            <label class="text-xs text-gray-600 mb-1">কাস্টম প্রয়োজনীয় আইডি টাইপ (ঐচ্ছিক)</label>
                             <input type="text" name="requiredIdTypeCustom" placeholder="যদি ভিন্ন কিছু চান, এখানে লিখুন" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                         </div>
                         <div class="flex flex-col col-span-2">
-                            <label class="text-xs text-gray-600 mb-1">কাস্টম ধরণ</label>
+                            <label class="text-xs text-gray-600 mb-1">কাস্টম ধরণ (ঐচ্ছিক)</label>
                             <input type="text" name="contestTypeCustom" placeholder="যদি ভিন্ন কিছু চান, এখানে লিখুন" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                         </div>
                         <div class="flex flex-col">
                             <label class="text-xs text-gray-600 mb-1">রুম আইডি</label>
-                            <input type="text" name="roomId" placeholder="রুম আইডি" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                            <input type="text" name="roomId" placeholder="রুম আইডি" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                         </div>
                         <div class="flex flex-col">
                             <label class="text-xs text-gray-600 mb-1">রুম পাসওয়ার্ড</label>
-                            <input type="text" name="roomPass" placeholder="রুম পাসওয়ার্ড" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                            <input type="text" name="roomPass" placeholder="রুম পাসওয়ার্ড" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                         </div>
                         <div class="flex flex-col col-span-2">
-                            <label class="text-xs text-gray-600 mb-1">স্ট্যাটাস <span class="text-red-500">*</span></label>
+                            <label class="text-xs text-gray-600 mb-1">স্ট্যাটাস</label>
                             <select name="status" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                                 <option value="active">Active</option>
                                 <option value="inactive">Inactive</option>
@@ -1348,55 +1348,55 @@
                 <form id="edit-post-form" class="space-y-4">
                     <div class="grid grid-cols-2 gap-3">
                         <div class="flex flex-col">
-                            <label class="text-xs text-gray-600 mb-1">টুর্নামেন্টের নাম <span class="text-red-500">*</span></label>
+                            <label class="text-xs text-gray-600 mb-1">টুর্নামেন্টের নাম</label>
                             <input type="text" name="contestName" value="${contestDetails.contestName}" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                         </div>
                         <div class="flex flex-col">
-                            <label class="text-xs text-gray-600 mb-1">গেমের নাম <span class="text-red-500">*</span></label>
+                            <label class="text-xs text-gray-600 mb-1">গেমের নাম</label>
                             <input type="text" name="gameName" value="${contestDetails.gameName}" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                         </div>
                         <div class="flex flex-col">
-                            <label class="text-xs text-gray-600 mb-1">গেম আইকন লিংক</label>
+                            <label class="text-xs text-gray-600 mb-1">গেম আইকন লিংক (ঐচ্ছিক)</label>
                             <input type="url" name="gameIconUrl" value="${contestDetails.gameIconUrl || ''}" placeholder="https://..." class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" pattern="https?://.*">
                         </div>
                         <div class="flex flex-col">
-                            <label class="text-xs text-gray-600 mb-1">এন্ট্রি ফি (৳) <span class="text-red-500">*</span></label>
+                            <label class="text-xs text-gray-600 mb-1">এন্ট্রি ফি (৳)</label>
                             <input type="number" name="entryFee" value="${contestDetails.entryFee}" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                         </div>
                         <div class="flex flex-col">
-                            <label class="text-xs text-gray-600 mb-1">সর্বোচ্চ প্লেয়ার <span class="text-red-500">*</span></label>
+                            <label class="text-xs text-gray-600 mb-1">সর্বোচ্চ প্লেয়ার</label>
                             <input type="number" name="maxPlayers" value="${contestDetails.maxPlayers}" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                         </div>
                         <div class="flex flex-col col-span-2">
-                            <label class="text-xs text-gray-600 mb-1">শুরুর সময় <span class="text-red-500">*</span></label>
+                            <label class="text-xs text-gray-600 mb-1">শুরুর সময়</label>
                             <input type="datetime-local" name="startTime" value="${startTimeForInput}" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                         </div>
                         <div class="flex flex-col">
-                            <label class="text-xs text-gray-600 mb-1">প্রয়োজনীয় আইডি টাইপ <span class="text-red-500">*</span></label>
+                            <label class="text-xs text-gray-600 mb-1">প্রয়োজনীয় আইডি টাইপ</label>
                             <select name="requiredIdType" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"><option value="Free Fire ID" ${contestDetails.requiredIdType === 'Free Fire ID' ? 'selected' : ''}>Free Fire ID</option><option value="Ludo King ID" ${contestDetails.requiredIdType === 'Ludo King ID' ? 'selected' : ''}>Ludo King ID</option></select>
                         </div>
                         <div class="flex flex-col">
-                            <label class="text-xs text-gray-600 mb-1">ধরণ <span class="text-red-500">*</span></label>
+                            <label class="text-xs text-gray-600 mb-1">ধরণ</label>
                             <select name="contestType" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"><option value="1v1" ${contestDetails.contestType === '1v1' ? 'selected' : ''}>1v1</option><option value="2v2" ${contestDetails.contestType === '2v2' ? 'selected' : ''}>2v2</option><option value="Free for All" ${contestDetails.contestType === 'Free for All' ? 'selected' : ''}>Free for All</option></select>
                         </div>
                         <div class="flex flex-col col-span-2">
-                            <label class="text-xs text-gray-600 mb-1">কাস্টম প্রয়োজনীয় আইডি টাইপ</label>
+                            <label class="text-xs text-gray-600 mb-1">কাস্টম প্রয়োজনীয় আইডি টাইপ (ঐচ্ছিক)</label>
                             <input type="text" name="requiredIdTypeCustom" value="" placeholder="যদি ভিন্ন কিছু চান, এখানে লিখুন" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                         </div>
                         <div class="flex flex-col col-span-2">
-                            <label class="text-xs text-gray-600 mb-1">কাস্টম ধরণ</label>
+                            <label class="text-xs text-gray-600 mb-1">কাস্টম ধরণ (ঐচ্ছিক)</label>
                             <input type="text" name="contestTypeCustom" value="" placeholder="যদি ভিন্ন কিছু চান, এখানে লিখুন" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                         </div>
                         <div class="flex flex-col">
-                            <label class="text-xs text-gray-600 mb-1">রুম আইডি <span class="text-red-500">*</span></label>
+                            <label class="text-xs text-gray-600 mb-1">রুম আইডি</label>
                             <input type="text" name="roomId" value="${contestDetails.roomId}" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                         </div>
                         <div class="flex flex-col">
-                            <label class="text-xs text-gray-600 mb-1">রুম পাসওয়ার্ড <span class="text-red-500">*</span></label>
+                            <label class="text-xs text-gray-600 mb-1">রুম পাসওয়ার্ড</label>
                             <input type="text" name="roomPass" value="${contestDetails.roomPass}" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                         </div>
                         <div class="flex flex-col col-span-2">
-                            <label class="text-xs text-gray-600 mb-1">স্ট্যাটাস <span class="text-red-500">*</span></label>
+                            <label class="text-xs text-gray-600 mb-1">স্ট্যাটাস</label>
                             <select name="status" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                                 <option value="active" ${postData.status === 'active' ? 'selected' : ''}>Active</option>
                                 <option value="inactive" ${postData.status === 'inactive' ? 'selected' : ''}>Inactive</option>
