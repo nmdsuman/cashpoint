@@ -525,7 +525,7 @@
 
             // Prefer icon image if provided, otherwise fall back to game name text
             const gameLabelHTML = contestDetails.gameIconUrl
-                ? `<img src="${contestDetails.gameIconUrl}" alt="${contestDetails.gameName || 'game'}" class="h-5 w-5 object-contain" onerror="this.style.display='none'">`
+                ? `<img src="${contestDetails.gameIconUrl}" alt="${contestDetails.gameName || 'game'}" class="h-6 w-6 object-contain" onerror="this.style.display='none'">`
                 : `<span class="text-sm font-medium text-gray-500">${contestDetails.gameName}</span>`;
 
             postElement.innerHTML = `
