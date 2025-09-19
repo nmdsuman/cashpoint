@@ -204,12 +204,17 @@
                     </div>
                 </div>
             `;
-            modalContainerEl.innerHTML = modalHTML;
+            // Append instead of replace so multiple modals can coexist
+            modalContainerEl.insertAdjacentHTML('beforeend', modalHTML);
             const modal = document.getElementById(id);
             modal.classList.add('show');
             modal.querySelector('.close-button').onclick = () => {
                 modal.classList.remove('show');
-                setTimeout(() => { modalContainerEl.innerHTML = ''; onClose(); }, 300);
+                // Remove only this modal, keep others intact
+                setTimeout(() => { 
+                    modal.remove(); 
+                    onClose(); 
+                }, 300);
             };
             modal.onclick = (e) => {
                 if (e.target.id === id) {
@@ -914,17 +919,20 @@
 
                         // Ensure target form modal exists (drafts modal replaced the container)
                         const data = draft.data || {};
-                        // Close drafts list first
+                        // Close drafts list first (renderModal clears container after 300ms)
                         document.querySelector('#draftsModal .close-button')?.click();
+                        // Wait until the drafts modal cleanup has finished
+                        await new Promise(r => setTimeout(r, 550));
 
-                        // If the target form is not present, recreate it
-                        let form = document.querySelector(`${modalSelector} form`);
-                        if (!form) {
-                            if (modalSelector === '#createPostModal') {
-                                openCreatePostModal();
-                            }
-                            // Wait a tick for the modal to render
+                        // Reopen the target modal unconditionally to avoid race with cleanup
+                        let form;
+                        if (modalSelector === '#createPostModal') {
+                            openCreatePostModal();
                             await new Promise(r => setTimeout(r, 0));
+                            form = document.querySelector(`${modalSelector} form`);
+                            const modalEl = document.getElementById('createPostModal');
+                            if (modalEl && !modalEl.classList.contains('show')) modalEl.classList.add('show');
+                        } else {
                             form = document.querySelector(`${modalSelector} form`);
                         }
                         if (!form) return; // safety
@@ -945,6 +953,9 @@
                             }
                         }
                         showMessage('ড্রাফট লোড হয়েছে।', 'success');
+                        // Focus first field to make it clear the form is active
+                        const firstInput = form.querySelector('input, select, textarea');
+                        firstInput?.focus();
                     });
                 });
 
