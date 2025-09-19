@@ -526,7 +526,7 @@
             // Prefer icon image if provided; show icon first and name next to it
             const gameLabelHTML = contestDetails.gameIconUrl
                 ? `<div class="flex items-center gap-2 mt-1">
-                        <img src="${contestDetails.gameIconUrl}" alt="${contestDetails.gameName || 'game'}" class="h-8 w-8 object-contain" onerror="this.style.display='none'">
+                        <img src="${contestDetails.gameIconUrl}" alt="${contestDetails.gameName || 'game'}" class="h-20 w-20 object-contain" onerror="this.style.display='none'">
                         <span class="text-sm font-medium text-gray-500">${contestDetails.gameName || ''}</span>
                    </div>`
                 : `<span class="text-sm font-medium text-gray-500">${contestDetails.gameName}</span>`;
