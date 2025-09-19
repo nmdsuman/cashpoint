@@ -60,7 +60,7 @@ export default async function handler(req, res) {
         });
 
         if (isTxIdInUse) {
-            return res.status(400).json({ message: 'এই TrxID দিয়ে ஏற்கனவே একটি অনুরোধ পেন্ডিং বা সফল হয়েছে।' });
+            return res.status(400).json({ message: 'এই ট্রানজেকশন টি ইতিমধ্যে বিদ্যমান।' });
         }
 
         // ৪. রিকোয়েস্ট এবং ব্যবহারকারীর জন্য ট্রানজেকশন ডকুমেন্ট তৈরি করুন
