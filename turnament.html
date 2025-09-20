@@ -130,7 +130,7 @@
     <script type="module">
         // Firebase SDKs
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, onAuthStateChanged, signOut, EmailAuthProvider, reauthenticateWithCredential } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, query, onSnapshot, orderBy, addDoc, getDocs, where, runTransaction, deleteDoc, serverTimestamp, increment } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Use CashPoint Firebase configuration (shared across CashPoint and Tournament)
@@ -374,20 +374,16 @@
                     const distance = endTime - now;
 
                     if (distance < 0) {
-                        el.innerHTML = `<span class="text-green-600 font-bold">শুরু হয়ে গেছে</span>`;
+                        el.innerHTML = `<span class="text-green-600 font-bold">Started</span>`;
                         return;
                     }
-                    const days = Math.floor(distance / (1000 * 60 * 60 * 24));
-                    const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                    const totalHours = Math.floor(distance / (1000 * 60 * 60));
                     const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
                     const seconds = Math.floor((distance % (1000 * 60)) / 1000);
-                    
-                    let countdownText = '';
-                    if (days > 0) countdownText += `${days}দি `;
-                    if (hours > 0 || days > 0) countdownText += `${hours}ঘন্টা `;
-                    countdownText += `${minutes}মি ${seconds}সে`;
-                    
-                    el.textContent = countdownText;
+                    const hh = String(totalHours).padStart(2,'0');
+                    const mm = String(minutes).padStart(2,'0');
+                    const ss = String(seconds).padStart(2,'0');
+                    el.textContent = `${hh}h:${mm}m:${ss}s`;
                 });
             }, 1000);
         };
@@ -414,9 +410,12 @@
             }
 
             postsUnsubscribe = onSnapshot(postsQuery, async (snapshot) => {
-                const postPromises = snapshot.docs.map(postDoc => {
+                const postPromises = snapshot.docs.map((postDoc, idx) => {
                     const post = { id: postDoc.id, ...postDoc.data() };
-                    return createPostElement(post, currentUserRole);
+                    const matchNumber = (post.matchNo !== undefined && post.matchNo !== null)
+                        ? Number(post.matchNo)
+                        : (idx + 1); // fallback if not set
+                    return createPostElement(post, currentUserRole, matchNumber);
                 });
 
                 const postElements = await Promise.all(postPromises);
@@ -436,7 +435,7 @@
         };
 
 
-        const createPostElement = async (post, currentUserRole) => {
+        const createPostElement = async (post, currentUserRole, matchNumber = 1) => {
             const postElement = document.createElement('div');
             postElement.id = `post-${post.id}`;
             
@@ -456,20 +455,23 @@
             if (post.status === 'inactive') statusColorClass = 'border-gray-400';
             if (post.status === 'complete') statusColorClass = 'border-green-500';
 
-            postElement.className = `bg-white p-4 rounded-xl shadow-lg border-l-4 ${statusColorClass}`;
+            // Card container style similar to the reference UI
+            postElement.className = `bg-white p-4 rounded-xl shadow-md border border-slate-200 ${statusColorClass.replace('border-', 'border-l-4 border-')}`;
 
-            let prizeListHTML = '';
-            if (contestDetails.prizes && contestDetails.prizes.length > 0) {
-                prizeListHTML = contestDetails.prizes.map((prize, index) => {
+            // Compute total prize for the header stats (fallback to sum of prizes)
+            let totalPrize = 0;
+            if (Array.isArray(contestDetails.prizes)) {
+                totalPrize = contestDetails.prizes.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+            }
+            const prizeListHTML = Array.isArray(contestDetails.prizes) && contestDetails.prizes.length
+                ? contestDetails.prizes.map((prize, index) => {
                     let iconColor = 'text-gray-400';
                     if (index === 0) iconColor = 'text-yellow-500';
                     if (index === 1) iconColor = 'text-gray-400';
                     if (index === 2) iconColor = 'text-orange-400';
-                    return `<span><i class="fas fa-trophy w-4 mr-1 ${iconColor}"></i>${prize.position}: ৳${prize.amount}</span>`;
-                }).join('');
-            } else {
-                 prizeListHTML = '<span><i class="fas fa-trophy w-4 mr-1 text-yellow-500"></i>পুরস্কার ঘোষণা করা হয়নি</span>';
-            }
+                    return `<span class="inline-flex items-center"><i class="fas fa-trophy w-4 mr-1 ${iconColor}"></i>${prize.position}: ৳${prize.amount}</span>`;
+                }).join('')
+                : '<span><i class="fas fa-trophy w-4 mr-1 text-yellow-500"></i>পুরস্কার ঘোষণা করা হয়নি</span>';
             
             let actionSectionHTML = '';
 
@@ -523,29 +525,90 @@
             // Prefer icon image if provided; show icon first and name next to it
             const gameLabelHTML = contestDetails.gameIconUrl
                 ? `<div class="flex items-center gap-2 mt-1">
-                        <img src="${contestDetails.gameIconUrl}" alt="${contestDetails.gameName || 'game'}" class="h-15 w-20 object-contain" onerror="this.style.display='none'">
-                        <span class="text-sm font-medium text-gray-500">${contestDetails.gameName || ''}</span>
+                        <img src="${contestDetails.gameIconUrl}" alt="${contestDetails.gameName || 'game'}" class="h-12 w-12 object-cover rounded" onerror="this.style.display='none'">
+                        <span class="text-sm font-medium text-gray-600">${contestDetails.gameName || ''}</span>
                    </div>`
-                : `<span class="text-sm font-medium text-gray-500">${contestDetails.gameName}</span>`;
+                : `<span class="text-sm font-medium text-gray-500">${contestDetails.gameName || ''}</span>`;
+
+            const entryType = (contestDetails.contestType || '').toLowerCase();
+            const perKill = contestDetails.perKill ? `৳${contestDetails.perKill}` : '—';
+            const mapName = contestDetails.map || '—';
+            const version = contestDetails.version || 'MOBILE';
+            const postShortId = `#${String(matchNumber).padStart(4,'0')}`;
+            const dateText = startTime.toLocaleString('en-US', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }).replace(',', ' at');
+
+            const remainingSpots = Math.max((contestDetails.maxPlayers || 0) - participantsCount, 0);
+            const canJoinHeader = (currentUserRole === 'user') && !hasJoined && !isFull;
 
             postElement.innerHTML = `
-                <div class="flex justify-between items-start">
-                    <div>
-                        <p class="text-xl font-bold text-gray-800">${contestDetails.contestName}</p>
+                <div class="flex items-start justify-between">
+                    <div class="min-w-0">
+                        <p class="text-base sm:text-lg font-bold text-gray-900">${contestDetails.contestName || 'Tournament'}</p>
+                        <p class="text-xs text-gray-500 mt-0.5">${dateText}</p>
                         ${gameLabelHTML}
                     </div>
-                    <div class="flex flex-col items-end space-y-2">
+                    <div class="flex flex-col items-end gap-2">
+                        <span class="text-[10px] font-bold bg-orange-100 text-orange-700 px-2 py-1 rounded-full">${postShortId}</span>
                         <span class="text-xs font-semibold px-2 py-1 rounded-full ${isFull ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}">${participantsCount}/${contestDetails.maxPlayers} জন</span>
                         ${adminStatusLabel}
+                        ${canJoinHeader ? `<button class="header-join-btn bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-4 py-2 rounded-lg">Join</button>` : ''}
                     </div>
                 </div>
-                <div class="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-gray-600">
-                    <div class="col-span-2 space-y-1">${prizeListHTML}</div>
-                    <span><i class="fas fa-gamepad w-4 mr-1 text-gray-400"></i>ধরণ: ${contestDetails.contestType}</span>
-                    <span class="col-span-2"><i class="fas fa-calendar-alt w-4 mr-1 text-gray-400"></i>সময়: ${startTime.toLocaleString('bn-BD')}</span>
-                    <span class="col-span-2"><i class="fas fa-hourglass-half w-4 mr-1 text-red-500"></i>বাকি: <span id="countdown-${post.id}" data-countdown-end="${startTime.getTime()}" class="font-bold text-red-600">লোড হচ্ছে...</span></span>
+
+                <div class="mt-1 flex items-center justify-between text-[11px] text-gray-500">
+                    <span>Only ${remainingSpots} spots are left</span>
+                    <span>${participantsCount}/${contestDetails.maxPlayers}</span>
                 </div>
+
+                <div class="mt-3 grid grid-cols-3 gap-3 text-[12px] text-gray-700">
+                    <div class="bg-slate-50 rounded-lg p-2 border">
+                        <p class="text-[10px] text-gray-500">WIN PRIZE</p>
+                        <p class="font-semibold">৳${totalPrize.toFixed(0)}</p>
+                    </div>
+                    <div class="bg-slate-50 rounded-lg p-2 border">
+                        <p class="text-[10px] text-gray-500">ENTRY TYPE</p>
+                        <p class="font-semibold">${entryType ? entryType.charAt(0).toUpperCase()+entryType.slice(1) : '—'}</p>
+                    </div>
+                    <div class="bg-slate-50 rounded-lg p-2 border">
+                        <p class="text-[10px] text-gray-500">ENTRY FEE</p>
+                        <p class="font-semibold">৳${contestDetails.entryFee || 0}</p>
+                    </div>
+                    <div class="bg-slate-50 rounded-lg p-2 border">
+                        <p class="text-[10px] text-gray-500">PER KILL</p>
+                        <p class="font-semibold">${perKill}</p>
+                    </div>
+                    <div class="bg-slate-50 rounded-lg p-2 border">
+                        <p class="text-[10px] text-gray-500">MAP</p>
+                        <p class="font-semibold">${mapName}</p>
+                    </div>
+                    <div class="bg-slate-50 rounded-lg p-2 border">
+                        <p class="text-[10px] text-gray-500">VERSION</p>
+                        <p class="font-semibold">${version}</p>
+                    </div>
+                </div>
+
                 ${actionSectionHTML}
+
+                <div class="mt-3">
+                    <div class="flex items-center justify-between text-xs">
+                        <button class="toggle-room btn-room text-slate-700 bg-slate-100 border px-3 py-1.5 rounded-lg hover:bg-slate-200">Room Details</button>
+                        <button class="toggle-prize btn-prize text-slate-700 bg-slate-100 border px-3 py-1.5 rounded-lg hover:bg-slate-200">Total Prize Details</button>
+                    </div>
+                    <div class="room-details hidden mt-2 text-sm bg-slate-50 border rounded-lg p-3">
+                        <div class="space-y-1">
+                            <div class="flex justify-between"><span class="text-gray-600">Room ID</span><code class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded">${contestDetails.roomId || '—'}</code></div>
+                            <div class="flex justify-between"><span class="text-gray-600">Password</span><code class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded">${contestDetails.roomPass || '—'}</code></div>
+                        </div>
+                    </div>
+                    <div class="prize-details hidden mt-2 text-sm bg-slate-50 border rounded-lg p-3">
+                        <div class="space-y-1">${prizeListHTML}</div>
+                    </div>
+                </div>
+
+                <div class="mt-3 rounded-lg bg-green-100 border border-green-200 p-2 flex items-center justify-between">
+                    <span class="text-green-700 font-semibold text-xs">STARTS IN</span>
+                    <span id="countdown-${post.id}" data-countdown-end="${startTime.getTime()}" class="font-bold text-green-700">লোড হচ্ছে...</span>
+                </div>
             `;
 
             if (currentUserRole === 'admin') {
@@ -562,8 +625,31 @@
             if (postElement.querySelector('.join-btn')) {
                 postElement.querySelector('.join-btn').onclick = () => showJoinFormInline(post);
             }
+            const headerJoinBtn = postElement.querySelector('.header-join-btn');
+            if (headerJoinBtn) {
+                headerJoinBtn.addEventListener('click', () => {
+                    showJoinFormInline(post);
+                    const target = document.getElementById(`action-container-${post.id}`);
+                    target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                });
+            }
             if (postElement.querySelector('.submit-proof-btn')) {
                 postElement.querySelector('.submit-proof-btn').onclick = () => openProofModal(post.id);
+            }
+            // Toggle handlers for details sections
+            const roomBtn = postElement.querySelector('.toggle-room');
+            const prizeBtn = postElement.querySelector('.toggle-prize');
+            const roomBox = postElement.querySelector('.room-details');
+            const prizeBox = postElement.querySelector('.prize-details');
+            if (roomBtn && roomBox) {
+                roomBtn.addEventListener('click', () => {
+                    roomBox.classList.toggle('hidden');
+                });
+            }
+            if (prizeBtn && prizeBox) {
+                prizeBtn.addEventListener('click', () => {
+                    prizeBox.classList.toggle('hidden');
+                });
             }
             return postElement;
         };
@@ -822,6 +908,10 @@
                             <input type="text" name="contestName" placeholder="টুর্নামেন্টের নাম" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                         </div>
                         <div class="flex flex-col">
+                            <label class="text-xs text-gray-600 mb-1">Match No</label>
+                            <input type="number" name="matchNo" placeholder="1" min="1" step="1" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                        </div>
+                        <div class="flex flex-col">
                             <label class="text-xs text-gray-600 mb-1">গেমের নাম</label>
                             <input type="text" name="gameName" placeholder="গেমের নাম" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                         </div>
@@ -1063,6 +1153,7 @@
             const prizes = [];
             let postStatus = 'active';
             let startTime = '';
+            let matchNo = undefined;
 
             for (let [key, value] of formData.entries()) {
                  if(key.startsWith('prize_position_')) {
@@ -1074,6 +1165,8 @@
                 } else if (key === 'startTime') {
                     startTime = value;
                     contestDetails[key] = value;
+                } else if (key === 'matchNo') {
+                    matchNo = value ? parseInt(value, 10) : undefined;
                 }
                  else {
                     contestDetails[key] = value;
@@ -1095,7 +1188,8 @@
                     timestamp: serverTimestamp(),
                     contestDetails: JSON.stringify(contestDetails),
                     status: postStatus, 
-                    startTime: new Date(startTime)
+                    startTime: new Date(startTime),
+                    ...(typeof matchNo === 'number' && !isNaN(matchNo) ? { matchNo } : {})
                 });
                 showMessage("টুর্নামেন্ট সফলভাবে পোস্ট করা হয়েছে!", 'success');
                 document.getElementById('createPostModal').querySelector('.close-button').click();
