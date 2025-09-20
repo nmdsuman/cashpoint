@@ -449,6 +449,8 @@
             const participantDoc = await getDoc(doc(participantsRef, currentUser.uid));
             const hasJoined = participantDoc.exists();
 
+            postElement.dataset.joined = hasJoined ? 'true' : 'false';
+
             const isFull = participantsCount >= contestDetails.maxPlayers;
             
             let statusColorClass = 'border-blue-500';
@@ -542,9 +544,12 @@
             const dateText = startTime.toLocaleString('en-US', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }).replace(',', ' at');
 
             const remainingSpots = Math.max((contestDetails.maxPlayers || 0) - participantsCount, 0);
-            // No header join; inline small Join button near progress bar per design
-            const canJoinHeader = false;
+            
             const canJoinInline = (currentUserRole === 'user') && !hasJoined && !isFull;
+            const joinButtonHTML = canJoinInline 
+                ? `<button class="progress-join-btn px-4 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg">Join</button>`
+                : (hasJoined ? `<button class="px-4 py-1.5 text-xs font-semibold bg-gray-400 text-white rounded-lg cursor-not-allowed" disabled>Joined</button>`: '');
+
 
             postElement.innerHTML = `
                 <div class="flex items-start justify-between w-full">
@@ -596,7 +601,7 @@
                         <div class="h-2 w-full bg-slate-200 rounded-full overflow-hidden">
                             <div class="h-full bg-slate-500" style="width: ${Math.min(100, Math.max(0, Math.round((participantsCount / (contestDetails.maxPlayers || 1)) * 100)))}%"></div>
                         </div>
-                        ${canJoinInline ? `<button class="progress-join-btn px-4 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg">Join</button>` : ''}
+                        ${joinButtonHTML}
                     </div>
                     ${actionSectionHTML}
                 </div>
@@ -681,7 +686,7 @@
                     target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 });
             }
-            // header join button removed by design
+            
             if (postElement.querySelector('.submit-proof-btn')) {
                 postElement.querySelector('.submit-proof-btn').onclick = () => openProofModal(post.id);
             }
@@ -692,8 +697,8 @@
             const prizeBox = postElement.querySelector('.prize-details');
             if (roomBtn && roomBox) {
                 roomBtn.addEventListener('click', () => {
-                    // If not joined, show a message and keep it hidden
-                    if (!hasJoined) {
+                    // Check the dataset attribute instead of the closed-over variable
+                    if (postElement.dataset.joined !== 'true') {
                         showMessage('আপনি এখনো জয়েন করেননি', 'error');
                         return;
                     }
@@ -734,7 +739,8 @@
 
             document.getElementById(`cancel-join-btn-${post.id}`).onclick = () => {
                 actionContainer.innerHTML = originalButtonHTML;
-                actionContainer.querySelector('.join-btn').onclick = () => showJoinFormInline(post);
+                // This will fail as there's no .join-btn anymore. This part becomes obsolete with the new design.
+                // We'll leave it as is, cancel simply removes the form. The user has to click the main join button again.
             };
         };
 
@@ -761,26 +767,43 @@
                 const postElement = document.getElementById(`post-${postId}`);
                 if (postElement) {
                     const contestDetails = JSON.parse(post.contestDetails);
-                    const actionContainer = postElement.querySelector(`#action-container-${postId}`);
-                    
-                    const joinedHTML = `
-                        <div class="mt-4 p-3 rounded-lg bg-blue-50 border border-blue-200 text-sm">
-                            <h4 class="font-bold text-blue-800 mb-2">আপনি জয়েন করেছেন!</h4>
-                            <p class="font-semibold text-blue-800 flex justify-between items-center">রুম আইডি: <code class="bg-blue-200 text-blue-900 px-2 py-1 rounded">${contestDetails.roomId}</code> <i onclick="copyToClipboard('${contestDetails.roomId}')" class="fas fa-copy cursor-pointer text-gray-500 ml-2"></i></p>
-                            <p class="font-semibold text-blue-800 flex justify-between items-center mt-1">পাসওয়ার্ড: <code class="bg-blue-200 text-blue-900 px-2 py-1 rounded">${contestDetails.roomPass}</code> <i onclick="copyToClipboard('${contestDetails.roomPass}')" class="fas fa-copy cursor-pointer text-gray-500 ml-2"></i></p>
-                            <button class="submit-proof-btn mt-3 w-full bg-indigo-600 text-white font-semibold py-2 rounded-lg hover:bg-indigo-700 transition">প্রুফ দিন (ঐচ্ছিক)</button>
-                        </div>
-                    `;
 
+                    // 1. Change join button to "Joined" and disable it
+                    const joinButtonContainer = postElement.querySelector('.progress-join-btn')?.parentElement;
+                    if(joinButtonContainer) {
+                        joinButtonContainer.querySelector('.progress-join-btn')?.remove();
+                        joinButtonContainer.insertAdjacentHTML('beforeend', `
+                            <button class="px-4 py-1.5 text-xs font-semibold bg-gray-400 text-white rounded-lg cursor-not-allowed" disabled>Joined</button>
+                        `);
+                    }
+
+                    // 2. Clear the action container where the join form was
+                    const actionContainer = postElement.querySelector(`#action-container-${postId}`);
                     if (actionContainer) {
-                        actionContainer.innerHTML = joinedHTML;
-                        const proofBtn = actionContainer.querySelector('.submit-proof-btn');
+                        actionContainer.innerHTML = '';
+                    }
+
+                    // 3. Update the Room Details section content and enable its button
+                    const roomDetailsDiv = postElement.querySelector('.room-details');
+                    if (roomDetailsDiv) {
+                        roomDetailsDiv.innerHTML = `
+                            <div class="space-y-2">
+                                <div class="flex justify-between"><span class="text-gray-600">Room ID</span><code class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded">${contestDetails.roomId || '—'}</code></div>
+                                <div class="flex justify-between"><span class="text-gray-600">Password</span><code class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded">${contestDetails.roomPass || '—'}</code></div>
+                                <button class="submit-proof-btn mt-2 w-full bg-indigo-600 text-white font-semibold py-2 rounded-lg hover:bg-indigo-700 transition">প্রুফ দিন (ঐচ্ছিক)</button>
+                            </div>
+                        `;
+                        // Re-wire the proof button inside the now-populated details div
+                        const proofBtn = roomDetailsDiv.querySelector('.submit-proof-btn');
                         if (proofBtn) {
                             proofBtn.onclick = () => openProofModal(postId);
                         }
                     }
+                    
+                    // 4. Mark the card as joined so the room details button works
+                    postElement.dataset.joined = 'true';
 
-                    // Also, update the player count
+                    // 5. Update the player count
                     const participantsCountEl = postElement.querySelector('.flex-col.items-end span.text-xs');
                     if (participantsCountEl) {
                         const currentCountText = participantsCountEl.textContent.split('/')[0];
@@ -1676,7 +1699,7 @@
                             <input type="number" name="maxPlayers" value="${contestDetails.maxPlayers}" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                         </div>
                         <div class="flex flex-col col-span-2">
-                            <label class="text-xs text-gray-600 mb-1">শুরুর সময় <span class="text-red-500">*</span></label>
+                            <label class="text-xs text-gray-600 mb-1">שুরুর সময় <span class="text-red-500">*</span></label>
                             <input type="datetime-local" name="startTime" value="${startTimeForInput}" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                         </div>
                         <div class="flex flex-col">
