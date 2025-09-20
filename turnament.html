@@ -530,10 +530,13 @@
                    </div>`
                 : `<span class="text-sm font-medium text-gray-500">${contestDetails.gameName || ''}</span>`;
 
-            const entryType = (contestDetails.contestType || '').toLowerCase();
-            const perKill = contestDetails.perKill ? `৳${contestDetails.perKill}` : '—';
-            const mapName = contestDetails.map || '—';
-            const version = contestDetails.version || 'MOBILE';
+            const entryTypeRaw = (contestDetails.contestType ?? '').toString();
+            const perKillRaw = (contestDetails.perKill ?? '').toString();
+            const perKill = perKillRaw.trim() === ''
+                ? '—'
+                : (isFinite(Number(perKillRaw)) ? `৳${Number(perKillRaw)}` : perKillRaw);
+            const mapName = (contestDetails.map ?? '—').toString();
+            const version = (contestDetails.version ?? 'MOBILE').toString();
             const postShortId = `#${String(matchNumber).padStart(4,'0')}`;
             const dateText = startTime.toLocaleString('en-US', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }).replace(',', ' at');
 
@@ -555,9 +558,14 @@
                     </div>
                 </div>
 
-                <div class="mt-1 flex items-center justify-between text-[11px] text-gray-500">
-                    <span>Only ${remainingSpots} spots are left</span>
-                    <span>${participantsCount}/${contestDetails.maxPlayers}</span>
+                <div class="mt-1">
+                    <div class="flex items-center justify-between text-[11px] text-gray-500">
+                        <span>Only ${remainingSpots} spots are left</span>
+                        <span>${participantsCount}/${contestDetails.maxPlayers}</span>
+                    </div>
+                    <div class="mt-1 h-2 w-full bg-slate-200 rounded-full overflow-hidden">
+                        <div class="h-full bg-slate-500" style="width: ${Math.min(100, Math.max(0, Math.round((participantsCount / (contestDetails.maxPlayers || 1)) * 100)))}%"></div>
+                    </div>
                 </div>
 
                 <div class="mt-3 grid grid-cols-3 gap-3 text-[12px] text-gray-700">
@@ -567,7 +575,7 @@
                     </div>
                     <div class="bg-slate-50 rounded-lg p-2 border">
                         <p class="text-[10px] text-gray-500">ENTRY TYPE</p>
-                        <p class="font-semibold">${entryType ? entryType.charAt(0).toUpperCase()+entryType.slice(1) : '—'}</p>
+                        <p class="font-semibold">${entryTypeRaw || '—'}</p>
                     </div>
                     <div class="bg-slate-50 rounded-lg p-2 border">
                         <p class="text-[10px] text-gray-500">ENTRY FEE</p>
@@ -588,6 +596,19 @@
                 </div>
 
                 ${actionSectionHTML}
+
+                <div class="mt-2 grid grid-cols-2 gap-2 text-[12px]">
+                    <div class="flex items-center gap-2 bg-slate-50 border rounded-lg px-3 py-2">
+                        <i class="fas fa-fire text-orange-500"></i>
+                        <span class="text-gray-700">Per Kill:</span>
+                        <span class="font-semibold">${perKill}</span>
+                    </div>
+                    <div class="flex items-center gap-2 bg-slate-50 border rounded-lg px-3 py-2">
+                        <i class="fas fa-trophy text-yellow-500"></i>
+                        <span class="text-gray-700">Total Prize:</span>
+                        <span class="font-semibold">৳${totalPrize.toFixed(0)}</span>
+                    </div>
+                </div>
 
                 <div class="mt-3">
                     <div class="flex items-center justify-between text-xs">
@@ -926,6 +947,18 @@
                         <div class="flex flex-col">
                             <label class="text-xs text-gray-600 mb-1">সর্বোচ্চ প্লেয়ার <span class="text-red-500">*</span></label>
                             <input type="number" name="maxPlayers" placeholder="সর্বোচ্চ প্লেয়ার" required max="50" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                        </div>
+                        <div class="flex flex-col">
+                            <label class="text-xs text-gray-600 mb-1">পার কিল (৳)</label>
+                            <input type="number" name="perKill" placeholder="যেমন: 5" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                        </div>
+                        <div class="flex flex-col">
+                            <label class="text-xs text-gray-600 mb-1">ম্যাপ</label>
+                            <input type="text" name="map" placeholder="যেমন: Bermuda" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                        </div>
+                        <div class="flex flex-col">
+                            <label class="text-xs text-gray-600 mb-1">ভার্সন</label>
+                            <input type="text" name="version" placeholder="যেমন: MOBILE" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                         </div>
                         <div class="flex flex-col col-span-2">
                             <label class="text-xs text-gray-600 mb-1">শুরুর সময় <span class="text-red-500">*</span></label>
