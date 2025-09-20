@@ -53,7 +53,7 @@ export default async function handler(req, res) {
 
     // Sanitize winners
     const sanitized = winners
-      .map(w => ({ userId: String(w.userId || ''), amount: Number(w.amount) }))
+      .map(w => ({ userId: String(w.userId || ''), amount: Number(w.amount), adminNote: String(w.adminNote || '') }))
       .filter(w => w.userId && Number.isFinite(w.amount) && w.amount > 0);
 
     if (sanitized.length === 0) {
@@ -63,6 +63,7 @@ export default async function handler(req, res) {
     const postRef = db.doc(`artifacts/${appId}/public/data/posts/${postId}`);
 
     await db.runTransaction(async (tx) => {
+      // --- ধাপ ১: সমস্ত Read অপারেশন একসাথে করা ---
       const postSnap = await tx.get(postRef);
       if (!postSnap.exists) {
         throw new Error('টুর্নামেন্ট পাওয়া যায়নি।');
@@ -72,6 +73,12 @@ export default async function handler(req, res) {
         throw new Error('এই টুর্নামেন্টের পুরস্কার ইতিমধ্যে বিতরণ করা হয়েছে।');
       }
 
+      // সব বিজয়ীর ইউজার ডকুমেন্ট একসাথে পড়ুন
+      const userRefs = sanitized.map(w => db.doc(`artifacts/${appId}/users/${w.userId}`));
+      const userSnaps = await tx.getAll(...userRefs);
+      
+      // --- ধাপ ২: সমস্ত Write অপারেশন একসাথে করা ---
+
       // Extract contest name for transaction descriptions if available
       let contestName = null;
       try {
@@ -79,33 +86,39 @@ export default async function handler(req, res) {
         contestName = cd.contestName || cd.gameName || null;
       } catch {}
 
-      for (const w of sanitized) {
-        const userRef = db.doc(`artifacts/${appId}/users/${w.userId}`);
-        const userSnap = await tx.get(userRef);
+      // এখন ডেটা আপডেট করুন
+      for (let i = 0; i < sanitized.length; i++) {
+        const winner = sanitized[i];
+        const userSnap = userSnaps[i];
+        
         if (!userSnap.exists) {
-          // Skip non-existent users silently; could also throw
+          console.warn(`Skipping non-existent user: ${winner.userId}`);
           continue;
         }
+
+        const userRef = userSnap.ref;
         const currentBalance = Number(userSnap.data()?.balance || 0);
-        tx.update(userRef, { balance: currentBalance + w.amount });
+        tx.update(userRef, { balance: currentBalance + winner.amount });
 
         // Create a transaction record for the prize credit
         const userTxRef = userRef.collection('transactions').doc();
         tx.set(userTxRef, {
           type: 'tournament_prize',
-          amount: w.amount,
+          amount: winner.amount,
           charge: 0,
           description: `Tournament prize${contestName ? ` - ${contestName}` : ''}`,
           status: 'received',
           timestamp: admin.firestore.FieldValue.serverTimestamp(),
           transactionId: generateTransactionId(),
-          metadata: { postId, contestName }
+          metadata: { postId, contestName, adminNote: winner.adminNote }
         });
       }
 
+      // সবশেষে পোস্টের স্ট্যাটাস আপডেট করুন
       tx.update(postRef, {
         status: 'prizes_distributed',
         pendingPrizes: {},
+        pendingNotes: {} // pendingNotes ও খালি করে দিন
       });
     });
 
