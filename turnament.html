@@ -493,7 +493,7 @@
                 } else {
                     actionSectionHTML = `
                         <div id="action-container-${post.id}" class="mt-4">
-                             <button class="join-btn w-full py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition">জয়েন করুন (৳${contestDetails.entryFee})</button>
+                             <button class="join-btn w-full py-3 bg-blue-600 text-white text-[15px] font-extrabold rounded-lg hover:bg-blue-700 transition">জয়েন করুন (৳${contestDetails.entryFee})</button>
                         </div>`;
                 }
             } else if (currentUserRole === 'admin') {
@@ -548,7 +548,8 @@
             const dateText = startTime.toLocaleString('en-US', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }).replace(',', ' at');
 
             const remainingSpots = Math.max((contestDetails.maxPlayers || 0) - participantsCount, 0);
-            const canJoinHeader = (currentUserRole === 'user') && !hasJoined && !isFull;
+            // Do not show small header Join button; only show the big one below
+            const canJoinHeader = false;
 
             postElement.innerHTML = `
                 <div class="flex items-start justify-between w-full">
@@ -561,7 +562,6 @@
                         <span class="text-[10px] font-bold bg-orange-100 text-orange-700 px-2 py-1 rounded-full">${postShortId}</span>
                         <span class="text-xs font-semibold px-2 py-1 rounded-full ${isFull ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}">${participantsCount}/${contestDetails.maxPlayers} জন</span>
                         ${adminStatusLabel}
-                        ${canJoinHeader ? `<button class="header-join-btn bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-4 py-2 rounded-lg">Join</button>` : ''}
                     </div>
                 </div>
 
@@ -688,14 +688,7 @@
             if (postElement.querySelector('.join-btn')) {
                 postElement.querySelector('.join-btn').onclick = () => showJoinFormInline(post);
             }
-            const headerJoinBtn = postElement.querySelector('.header-join-btn');
-            if (headerJoinBtn) {
-                headerJoinBtn.addEventListener('click', () => {
-                    showJoinFormInline(post);
-                    const target = document.getElementById(`action-container-${post.id}`);
-                    target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                });
-            }
+            // header join button removed by design
             if (postElement.querySelector('.submit-proof-btn')) {
                 postElement.querySelector('.submit-proof-btn').onclick = () => openProofModal(post.id);
             }
