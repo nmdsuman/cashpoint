@@ -489,12 +489,11 @@
                             <button class="mt-3 w-full bg-indigo-600 text-white font-semibold py-2 rounded-lg hover:bg-indigo-700 transition submit-proof-btn">প্রুফ দিন (ঐচ্ছিক)</button>
                         </div>`;
                 } else if (isFull) {
-                    actionSectionHTML = `<div class="mt-4"><button class="w-full py-2 bg-red-400 text-white font-semibold rounded-lg cursor-not-allowed" disabled>টুর্নামেন্ট পূর্ণ</button></div>`;
+                    actionSectionHTML = `<div class="mt-3"><button class="w-full py-2 bg-red-400 text-white font-semibold rounded-lg cursor-not-allowed" disabled>টুর্নামেন্ট পূর্ণ</button></div>`;
                 } else {
+                    // inline button above will open this container with the form
                     actionSectionHTML = `
-                        <div id="action-container-${post.id}" class="mt-4">
-                             <button class="join-btn w-full py-3 bg-blue-600 text-white text-[15px] font-extrabold rounded-lg hover:bg-blue-700 transition">জয়েন করুন (৳${contestDetails.entryFee})</button>
-                        </div>`;
+                        <div id="action-container-${post.id}" class="mt-2"></div>`;
                 }
             } else if (currentUserRole === 'admin') {
                  let viewPlayerButtonClass = 'bg-indigo-500 hover:bg-indigo-600';
@@ -548,8 +547,9 @@
             const dateText = startTime.toLocaleString('en-US', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }).replace(',', ' at');
 
             const remainingSpots = Math.max((contestDetails.maxPlayers || 0) - participantsCount, 0);
-            // Do not show small header Join button; only show the big one below
+            // No header join; inline small Join button near progress bar per design
             const canJoinHeader = false;
+            const canJoinInline = (currentUserRole === 'user') && !hasJoined && !isFull;
 
             postElement.innerHTML = `
                 <div class="flex items-start justify-between w-full">
@@ -570,8 +570,11 @@
                         <span>Only ${remainingSpots} spots are left</span>
                         <span>${participantsCount}/${contestDetails.maxPlayers}</span>
                     </div>
-                    <div class="mt-1 h-2 w-full bg-slate-200 rounded-full overflow-hidden">
-                        <div class="h-full bg-slate-500" style="width: ${Math.min(100, Math.max(0, Math.round((participantsCount / (contestDetails.maxPlayers || 1)) * 100)))}%"></div>
+                    <div class="mt-1 flex items-center gap-2">
+                        <div class="h-2 w-full bg-slate-200 rounded-full overflow-hidden">
+                            <div class="h-full bg-slate-500" style="width: ${Math.min(100, Math.max(0, Math.round((participantsCount / (contestDetails.maxPlayers || 1)) * 100)))}%"></div>
+                        </div>
+                        ${canJoinInline ? `<button class="progress-join-btn px-4 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg">Join</button>` : ''}
                     </div>
                 </div>
 
@@ -685,8 +688,13 @@
                     });
                 });
             }
-            if (postElement.querySelector('.join-btn')) {
-                postElement.querySelector('.join-btn').onclick = () => showJoinFormInline(post);
+            const inlineJoinBtn = postElement.querySelector('.progress-join-btn');
+            if (inlineJoinBtn) {
+                inlineJoinBtn.addEventListener('click', () => {
+                    showJoinFormInline(post);
+                    const target = document.getElementById(`action-container-${post.id}`);
+                    target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                });
             }
             // header join button removed by design
             if (postElement.querySelector('.submit-proof-btn')) {
