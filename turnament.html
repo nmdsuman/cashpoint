@@ -457,17 +457,14 @@
             if (post.status === 'inactive') statusColorClass = 'border-gray-400';
             if (post.status === 'complete') statusColorClass = 'border-green-500';
 
-            // Card container style similar to the reference UI
             postElement.className = `bg-white p-4 rounded-xl shadow-md border border-slate-200 ${statusColorClass.replace('border-', 'border-l-4 border-')}`;
 
-            // Compute/display total prize: prefer manual winPrize text; else sum of prizes
             let totalPrizeDisplay = (contestDetails.winPrize ?? '').toString().trim();
-            let totalPrize = 0;
             if (!totalPrizeDisplay) {
                 if (Array.isArray(contestDetails.prizes)) {
-                    totalPrize = contestDetails.prizes.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+                    const totalPrize = contestDetails.prizes.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+                    totalPrizeDisplay = totalPrize.toFixed(0);
                 }
-                totalPrizeDisplay = totalPrize.toFixed(0);
             }
             const prizeListHTML = Array.isArray(contestDetails.prizes) && contestDetails.prizes.length
                 ? contestDetails.prizes.map((prize, index) => {
@@ -475,22 +472,16 @@
                     if (index === 0) iconColor = 'text-yellow-500';
                     if (index === 1) iconColor = 'text-gray-400';
                     if (index === 2) iconColor = 'text-orange-400';
-                    return `<span class="inline-flex items-center"><i class="fas fa-trophy w-4 mr-1 ${iconColor}"></i>${prize.position}: ৳${prize.amount}</span>`;
+                    return `<div class="flex justify-between items-center text-sm"><span class="inline-flex items-center"><i class="fas fa-trophy w-5 mr-2 ${iconColor}"></i>${prize.position}</span> <span class="font-semibold">৳${prize.amount}</span></div>`;
                 }).join('')
-                : '<span><i class="fas fa-trophy w-4 mr-1 text-yellow-500"></i>পুরস্কার ঘোষণা করা হয়নি</span>';
+                : '<span><i class="fas fa-trophy w-4 mr-1 text-yellow-500"></i> পুরস্কার ঘোষণা করা হয়নি</span>';
             
             let actionSectionHTML = '';
-
             if (currentUserRole === 'user') {
                 if (hasJoined) {
-                    // No inline joined box anymore; room info will be shown inside Room Details
-                    actionSectionHTML = `\n                        <div id="action-container-${post.id}" class="mt-2"></div>`;
-                } else if (isFull) {
-                    actionSectionHTML = `<div class="mt-3"><button class="w-full py-2 bg-red-400 text-white font-semibold rounded-lg cursor-not-allowed" disabled>টুর্নামেন্ট পূর্ণ</button></div>`;
-                } else {
-                    // inline button above will open this container with the form
-                    actionSectionHTML = `
-                        <div id="action-container-${post.id}" class="mt-2"></div>`;
+                    actionSectionHTML = `\n<div id="action-container-${post.id}" class="mt-2"></div>`;
+                } else if (!isFull) {
+                    actionSectionHTML = `<div id="action-container-${post.id}" class="mt-2"></div>`;
                 }
             } else if (currentUserRole === 'admin') {
                  let viewPlayerButtonClass = 'bg-indigo-500 hover:bg-indigo-600';
@@ -522,107 +513,113 @@
                 adminStatusLabel = `<span class="text-xs font-semibold px-2 py-1 rounded-full ${statusClass}">${statusText}</span>`;
             }
 
-            // Prefer icon image if provided; show icon first and name next to it
-            const gameLabelHTML = contestDetails.gameIconUrl
-                ? `<div class="flex items-center gap-2 mt-1">
-                        <img src="${contestDetails.gameIconUrl}" alt="${contestDetails.gameName || 'game'}" class="h-12 w-12 object-cover rounded" onerror="this.style.display='none'">
-                        <span class="text-sm font-medium text-gray-600">${contestDetails.gameName || ''}</span>
-                   </div>`
-                : `<span class="text-sm font-medium text-gray-500">${contestDetails.gameName || ''}</span>`;
-
-            // Helper to show edit pencil for admins
             const editIcon = (key) => currentUserRole === 'admin' ? ` <i class="fas fa-pen text-gray-400 hover:text-gray-700 cursor-pointer text-xs align-middle ml-1" data-edit="${key}" title="Edit"></i>` : '';
-
-            const entryTypeRaw = (contestDetails.contestType ?? '').toString();
-            const perKillRaw = (contestDetails.perKill ?? '').toString();
-            const perKill = perKillRaw.trim() === ''
-                ? '—'
-                : (isFinite(Number(perKillRaw)) ? `৳${Number(perKillRaw)}` : perKillRaw);
-            const mapName = (contestDetails.map ?? '—').toString();
+            
+            const entryTypeRaw = (contestDetails.contestType ?? 'Solo').toString();
             const version = (contestDetails.version ?? 'MOBILE').toString();
+            const contestName = contestDetails.contestName || 'Tournament';
+            const fullTitle = `${contestName} | ${version} | ${entryTypeRaw}`;
+
+            const gameIconHTML = contestDetails.gameIconUrl
+                ? `<img src="${contestDetails.gameIconUrl}" alt="${contestDetails.gameName || 'game'}" class="h-12 w-12 object-cover rounded flex-shrink-0" onerror="this.style.display='none'">`
+                : `<div class="h-12 w-12 bg-slate-200 rounded flex items-center justify-center flex-shrink-0"><i class="fas fa-gamepad text-2xl text-slate-400"></i></div>`;
+
+            const dateText = startTime.toLocaleString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', hour: 'numeric', minute: '2-digit', hour12: true }).replace(',', ' at');
+            
+            const perKillRaw = (contestDetails.perKill ?? '').toString();
+            const perKill = perKillRaw.trim() === '' ? '—' : (isFinite(Number(perKillRaw)) ? `৳${Number(perKillRaw)}` : perKillRaw);
+            const mapName = (contestDetails.map ?? '—').toString();
             const postShortId = `#${String(matchNumber).padStart(4,'0')}`;
-            const dateText = startTime.toLocaleString('en-US', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }).replace(',', ' at');
 
             const remainingSpots = Math.max((contestDetails.maxPlayers || 0) - participantsCount, 0);
+            const canJoin = (currentUserRole === 'user') && !hasJoined && !isFull;
+            const joinButtonHTML = `
+                <div class="flex-shrink-0">
+                    ${canJoin ? `<button class="progress-join-btn px-6 py-2 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition">Join</button>` : ''}
+                    ${hasJoined ? `<button class="px-6 py-2 text-sm font-semibold bg-gray-400 text-white rounded-lg cursor-not-allowed" disabled>Joined</button>` : ''}
+                    ${isFull && !hasJoined ? `<button class="px-6 py-2 text-sm font-semibold bg-red-400 text-white rounded-lg cursor-not-allowed" disabled>Full</button>` : ''}
+                </div>`;
             
-            const canJoinInline = (currentUserRole === 'user') && !hasJoined && !isFull;
-            const joinButtonHTML = canJoinInline 
-                ? `<button class="progress-join-btn px-4 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg">Join</button>`
-                : (hasJoined ? `<button class="px-4 py-1.5 text-xs font-semibold bg-gray-400 text-white rounded-lg cursor-not-allowed" disabled>Joined</button>`: '');
-
-
             postElement.innerHTML = `
                 <div class="flex items-start justify-between w-full">
-                    <div class="min-w-0">
-                        <p class="text-base sm:text-lg font-bold text-gray-900"><span data-field="contestName">${contestDetails.contestName || 'Tournament'}</span>${editIcon('contestName')}</p>
-                        <p class="text-xs text-gray-500 mt-0.5"><span data-field="startTimeText">${dateText}</span>${editIcon('startTime')}</p>
-                        ${gameLabelHTML.replace('</span>', `</span>${editIcon('gameName')}`)}
+                    <div class="flex items-center gap-3 min-w-0">
+                        ${gameIconHTML}
+                        <div class="min-w-0">
+                            <p class="text-base sm:text-lg font-bold text-gray-900 truncate" title="${fullTitle}">${fullTitle}</p>
+                            <p class="text-xs text-gray-500 mt-0.5">${dateText}</p>
+                        </div>
                     </div>
-                    <div class="flex flex-col items-end gap-2">
-                        <span class="text-[10px] font-bold bg-orange-100 text-orange-700 px-2 py-1 rounded-full">${postShortId}</span>
-                        <span class="text-xs font-semibold px-2 py-1 rounded-full ${isFull ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}">${participantsCount}/${contestDetails.maxPlayers} জন</span>
+                    <div class="flex flex-col items-end gap-2 flex-shrink-0">
+                        <span class="text-xs font-bold bg-orange-100 text-orange-700 px-2 py-1 rounded-full">${postShortId}</span>
                         ${adminStatusLabel}
                     </div>
                 </div>
 
-                <div class="mt-2 grid grid-cols-3 gap-3 text-[12px] text-gray-700 w-full">
-                    <div class="bg-slate-50 rounded-lg p-2 border">
-                        <p class="text-[10px] text-gray-500">WIN PRIZE</p>
-                        <p class="font-semibold">৳<span data-field="totalPrize">${totalPrizeDisplay}</span>${editIcon('winPrize')}</p>
+                <div class="mt-4 grid grid-cols-3 gap-3">
+                    <div class="bg-slate-50 rounded-lg p-2 border text-left">
+                        <p class="text-[10px] text-gray-500 uppercase">WIN PRIZE</p>
+                        <p class="font-bold text-gray-800">৳<span data-field="totalPrize">${totalPrizeDisplay}</span>${editIcon('winPrize')}</p>
                     </div>
-                    <div class="bg-slate-50 rounded-lg p-2 border">
-                        <p class="text-[10px] text-gray-500">ENTRY TYPE</p>
-                        <p class="font-semibold"><span data-field="contestType">${entryTypeRaw || '—'}</span>${editIcon('contestType')}</p>
+                    <div class="bg-slate-50 rounded-lg p-2 border text-left">
+                        <p class="text-[10px] text-gray-500 uppercase">ENTRY TYPE</p>
+                        <p class="font-bold text-gray-800"><span data-field="contestType">${entryTypeRaw || '—'}</span>${editIcon('contestType')}</p>
                     </div>
-                    <div class="bg-slate-50 rounded-lg p-2 border">
-                        <p class="text-[10px] text-gray-500">ENTRY FEE</p>
-                        <p class="font-semibold">৳<span data-field="entryFee">${contestDetails.entryFee || 0}</span>${editIcon('entryFee')}</p>
+                    <div class="bg-slate-50 rounded-lg p-2 border text-left">
+                        <p class="text-[10px] text-gray-500 uppercase">ENTRY FEE</p>
+                        <p class="font-bold text-gray-800">৳<span data-field="entryFee">${contestDetails.entryFee || 0}</span>${editIcon('entryFee')}</p>
                     </div>
-                    <div class="bg-slate-50 rounded-lg p-2 border">
-                        <p class="text-[10px] text-gray-500">PER KILL</p>
-                        <p class="font-semibold"><span data-field="perKill">${perKill}</span>${editIcon('perKill')}</p>
+                    <div class="bg-slate-50 rounded-lg p-2 border text-left">
+                        <p class="text-[10px] text-gray-500 uppercase">PER KILL</p>
+                        <p class="font-bold text-gray-800"><span data-field="perKill">${perKill}</span>${editIcon('perKill')}</p>
                     </div>
-                    <div class="bg-slate-50 rounded-lg p-2 border">
-                        <p class="text-[10px] text-gray-500">MAP</p>
-                        <p class="font-semibold"><span data-field="map">${mapName}</span>${editIcon('map')}</p>
+                    <div class="bg-slate-50 rounded-lg p-2 border text-left">
+                        <p class="text-[10px] text-gray-500 uppercase">MAP</p>
+                        <p class="font-bold text-gray-800"><span data-field="map">${mapName}</span>${editIcon('map')}</p>
                     </div>
-                    <div class="bg-slate-50 rounded-lg p-2 border">
-                        <p class="text-[10px] text-gray-500">VERSION</p>
-                        <p class="font-semibold"><span data-field="version">${version}</span>${editIcon('version')}</p>
+                    <div class="bg-slate-50 rounded-lg p-2 border text-left">
+                        <p class="text-[10px] text-gray-500 uppercase">VERSION</p>
+                        <p class="font-bold text-gray-800"><span data-field="version">${version}</span>${editIcon('version')}</p>
                     </div>
                 </div>
 
-                <div class="mt-2">
-                    <div class="flex items-center justify-between text-[11px] text-gray-500">
+                <div class="mt-4">
+                    <div class="flex items-center justify-between text-[11px] text-gray-500 mb-1">
                         <span>Only ${remainingSpots} spots are left</span>
                         <span>${participantsCount}/${contestDetails.maxPlayers}</span>
                     </div>
-                    <div class="mt-1 flex items-center gap-2">
-                        <div class="h-2 w-full bg-slate-200 rounded-full overflow-hidden">
-                            <div class="h-full bg-slate-500" style="width: ${Math.min(100, Math.max(0, Math.round((participantsCount / (contestDetails.maxPlayers || 1)) * 100)))}%"></div>
+                    <div class="flex items-center gap-4">
+                        <div class="flex-grow h-2 bg-slate-200 rounded-full overflow-hidden">
+                            <div class="h-full bg-blue-500" style="width: ${Math.min(100, Math.max(0, Math.round((participantsCount / (contestDetails.maxPlayers || 1)) * 100)))}%"></div>
                         </div>
                         ${joinButtonHTML}
                     </div>
                     ${actionSectionHTML}
                 </div>
-                <div class="mt-3">
-                    <div class="flex items-center justify-between text-xs">
-                        <button class="toggle-room btn-room text-slate-700 bg-slate-100 border px-3 py-1.5 rounded-lg hover:bg-slate-200">Room Details</button>
-                        <button class="toggle-prize btn-prize text-slate-700 bg-slate-100 border px-3 py-1.5 rounded-lg hover:bg-slate-200">Total Prize Details</button>
-                    </div>
-                    <div class="room-details hidden mt-2 text-sm bg-slate-50 border rounded-lg p-3">
-                        ${hasJoined ? `
-                        <div class="space-y-2">
-                            <div class="flex justify-between"><span class="text-gray-600">Room ID</span><code class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded">${contestDetails.roomId || '—'}</code></div>
-                            <div class="flex justify-between"><span class="text-gray-600">Password</span><code class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded">${contestDetails.roomPass || '—'}</code></div>
-                            <button class="submit-proof-btn mt-2 w-full bg-indigo-600 text-white font-semibold py-2 rounded-lg hover:bg-indigo-700 transition">প্রুফ দিন (ঐচ্ছিক)</button>
+
+                <div class="mt-4 border-t border-slate-200 pt-3 space-y-1">
+                    <div>
+                        <button class="toggle-room w-full flex justify-between items-center text-slate-800 font-semibold p-2 rounded-lg hover:bg-slate-100">
+                            <span><i class="fas fa-info-circle text-slate-500 w-5 mr-2"></i>Room Details</span>
+                            <i class="fas fa-chevron-down transform transition-transform"></i>
+                        </button>
+                        <div class="room-details hidden mt-1 text-sm bg-slate-50 border rounded-lg p-3">
+                            ${hasJoined ? `
+                            <div class="space-y-2">
+                                <div class="flex justify-between"><span class="text-gray-600">Room ID</span><code class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded">${contestDetails.roomId || '—'}</code></div>
+                                <div class="flex justify-between"><span class="text-gray-600">Password</span><code class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded">${contestDetails.roomPass || '—'}</code></div>
+                                <button class="submit-proof-btn mt-2 w-full bg-indigo-600 text-white font-semibold py-2 rounded-lg hover:bg-indigo-700 transition">প্রুফ দিন (ঐচ্ছিক)</button>
+                            </div>
+                            ` : `<div class="text-center text-sm text-gray-600">আপনি এখনো জয়েন করেননি</div>`}
                         </div>
-                        ` : `
-                        <div class="text-center text-sm text-gray-600">আপনি এখনো জয়েন করেননি</div>
-                        `}
                     </div>
-                    <div class="prize-details hidden mt-2 text-sm bg-slate-50 border rounded-lg p-3">
-                        <div class="space-y-1">${prizeListHTML}</div>
+                    <div>
+                        <button class="toggle-prize w-full flex justify-between items-center text-slate-800 font-semibold p-2 rounded-lg hover:bg-slate-100">
+                            <span><i class="fas fa-trophy text-yellow-500 w-5 mr-2"></i>Total Prize Details</span>
+                            <i class="fas fa-chevron-down transform transition-transform"></i>
+                        </button>
+                        <div class="prize-details hidden mt-1 text-sm bg-slate-50 border rounded-lg p-3">
+                            <div class="space-y-1">${prizeListHTML}</div>
+                        </div>
                     </div>
                 </div>
 
@@ -643,19 +640,13 @@
                 postElement.querySelector('.edit-post-btn').onclick = () => editPostModal(post.id);
                 postElement.querySelector('.delete-post-btn').onclick = () => deletePost(post.id);
 
-                // Inline edit handlers for pencils
                 postElement.querySelectorAll('[data-edit]').forEach(icon => {
                     icon.addEventListener('click', async (e) => {
                         const key = e.currentTarget.getAttribute('data-edit');
                         const labelMap = {
-                            contestName: 'টুর্নামেন্টের নাম',
-                            startTime: 'শুরুর সময়',
-                            gameName: 'গেমের নাম',
-                            contestType: 'এন্ট্রি টাইপ',
-                            entryFee: 'এন্ট্রি ফি (৳)',
-                            perKill: 'পার কিল (৳)',
-                            map: 'ম্যাপ',
-                            version: 'ভার্সন'
+                            contestName: 'টুর্নামেন্টের নাম', startTime: 'শুরুর সময়', gameName: 'গেমের নাম',
+                            contestType: 'এন্ট্রি টাইপ', entryFee: 'এন্ট্রি ফি (৳)', perKill: 'পার কিল (৳)',
+                            map: 'ম্যাপ', version: 'ভার্সন'
                         };
                         let hint = labelMap[key] || key;
                         let currentVal = '';
@@ -671,10 +662,7 @@
                         try {
                             await updatePostFieldInline(post.id, key, newVal);
                             showMessage('আপডেট হয়েছে!', 'success');
-                        } catch (err) {
-                            console.error(err);
-                            showMessage('আপডেট ব্যর্থ হয়েছে', 'error');
-                        }
+                        } catch (err) { console.error(err); showMessage('আপডেট ব্যর্থ হয়েছে', 'error'); }
                     });
                 });
             }
@@ -690,24 +678,25 @@
             if (postElement.querySelector('.submit-proof-btn')) {
                 postElement.querySelector('.submit-proof-btn').onclick = () => openProofModal(post.id);
             }
-            // Toggle handlers for details sections
+
             const roomBtn = postElement.querySelector('.toggle-room');
             const prizeBtn = postElement.querySelector('.toggle-prize');
             const roomBox = postElement.querySelector('.room-details');
             const prizeBox = postElement.querySelector('.prize-details');
             if (roomBtn && roomBox) {
                 roomBtn.addEventListener('click', () => {
-                    // Check the dataset attribute instead of the closed-over variable
                     if (postElement.dataset.joined !== 'true') {
                         showMessage('আপনি এখনো জয়েন করেননি', 'error');
                         return;
                     }
                     roomBox.classList.toggle('hidden');
+                    roomBtn.querySelector('.fa-chevron-down').classList.toggle('rotate-180');
                 });
             }
             if (prizeBtn && prizeBox) {
                 prizeBtn.addEventListener('click', () => {
                     prizeBox.classList.toggle('hidden');
+                    prizeBtn.querySelector('.fa-chevron-down').classList.toggle('rotate-180');
                 });
             }
             return postElement;
@@ -721,7 +710,7 @@
             const originalButtonHTML = actionContainer.innerHTML;
 
             const formHTML = `
-                <div class="space-y-2">
+                <div class="space-y-2 mt-3 p-3 bg-slate-50 border rounded-lg">
                     <input type="text" id="user-id-input-${post.id}" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="আপনার ${contestDetails.requiredIdType} দিন">
                     <p class="text-xs text-center text-red-600">আপনার ওয়ালেট থেকে ৳${contestDetails.entryFee} কেটে নেওয়া হবে।</p>
                     <div class="flex space-x-2">
@@ -739,8 +728,6 @@
 
             document.getElementById(`cancel-join-btn-${post.id}`).onclick = () => {
                 actionContainer.innerHTML = originalButtonHTML;
-                // This will fail as there's no .join-btn anymore. This part becomes obsolete with the new design.
-                // We'll leave it as is, cancel simply removes the form. The user has to click the main join button again.
             };
         };
 
@@ -752,10 +739,7 @@
                 const token = await currentUser.getIdToken();
                 const resp = await fetch('/api/joinTournament', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                     body: JSON.stringify({ postId, idValue })
                 });
                 const data = await resp.json();
@@ -763,27 +747,17 @@
                 
                 showMessage('সফলভাবে যোগদান করেছেন!', 'success');
 
-                // Instantly update the UI without waiting for Firestore listener
                 const postElement = document.getElementById(`post-${postId}`);
                 if (postElement) {
                     const contestDetails = JSON.parse(post.contestDetails);
-
-                    // 1. Change join button to "Joined" and disable it
                     const joinButtonContainer = postElement.querySelector('.progress-join-btn')?.parentElement;
                     if(joinButtonContainer) {
-                        joinButtonContainer.querySelector('.progress-join-btn')?.remove();
-                        joinButtonContainer.insertAdjacentHTML('beforeend', `
-                            <button class="px-4 py-1.5 text-xs font-semibold bg-gray-400 text-white rounded-lg cursor-not-allowed" disabled>Joined</button>
-                        `);
+                        joinButtonContainer.innerHTML = `<button class="px-6 py-2 text-sm font-semibold bg-gray-400 text-white rounded-lg cursor-not-allowed" disabled>Joined</button>`;
                     }
 
-                    // 2. Clear the action container where the join form was
                     const actionContainer = postElement.querySelector(`#action-container-${postId}`);
-                    if (actionContainer) {
-                        actionContainer.innerHTML = '';
-                    }
+                    if (actionContainer) actionContainer.innerHTML = '';
 
-                    // 3. Update the Room Details section content and enable its button
                     const roomDetailsDiv = postElement.querySelector('.room-details');
                     if (roomDetailsDiv) {
                         roomDetailsDiv.innerHTML = `
@@ -793,28 +767,19 @@
                                 <button class="submit-proof-btn mt-2 w-full bg-indigo-600 text-white font-semibold py-2 rounded-lg hover:bg-indigo-700 transition">প্রুফ দিন (ঐচ্ছিক)</button>
                             </div>
                         `;
-                        // Re-wire the proof button inside the now-populated details div
                         const proofBtn = roomDetailsDiv.querySelector('.submit-proof-btn');
-                        if (proofBtn) {
-                            proofBtn.onclick = () => openProofModal(postId);
-                        }
+                        if (proofBtn) proofBtn.onclick = () => openProofModal(postId);
                     }
                     
-                    // 4. Mark the card as joined so the room details button works
                     postElement.dataset.joined = 'true';
 
-                    // 5. Update the player count
-                    const participantsCountEl = postElement.querySelector('.flex-col.items-end span.text-xs');
-                    if (participantsCountEl) {
+                    const participantsCountEl = postElement.querySelector('.flex.items-center.justify-between.text-\\[11px\\] span:last-child');
+                     if (participantsCountEl) {
                         const currentCountText = participantsCountEl.textContent.split('/')[0];
                         const currentCount = parseInt(currentCountText, 10);
                         if (!isNaN(currentCount)) {
                            const maxPlayers = contestDetails.maxPlayers;
-                           participantsCountEl.textContent = `${currentCount + 1}/${maxPlayers} জন`;
-                            if (currentCount + 1 >= maxPlayers) {
-                                participantsCountEl.classList.remove('bg-green-100', 'text-green-700');
-                                participantsCountEl.classList.add('bg-red-100', 'text-red-700');
-                            }
+                           participantsCountEl.textContent = `${currentCount + 1}/${maxPlayers}`;
                         }
                     }
                 }
@@ -848,7 +813,6 @@
             `;
             renderModal('submitProofModal', 'প্রুফ জমা দিন', content);
 
-            // Prefill previous proof if exists
             try {
                 const partRef = doc(db, 'artifacts', appId, 'public', 'data', 'posts', postId, 'participants', currentUser.uid);
                 const partSnap = await getDoc(partRef);
@@ -874,12 +838,10 @@
 
         const uploadToImgbb = async (file) => {
             if (!file) return null;
-            // Convert file to base64 without data URL prefix
             const toBase64 = (f) => new Promise((resolve, reject) => {
                 const reader = new FileReader();
                 reader.onload = () => {
                     const res = reader.result;
-                    // res is data URL like 'data:image/png;base64,XXXX', we need only base64 part
                     const base64 = typeof res === 'string' ? res.split(',')[1] : null;
                     if (!base64) reject(new Error('Base64 conversion failed'));
                     else resolve(base64);
@@ -892,10 +854,7 @@
             const token = await currentUser.getIdToken();
             const resp = await fetch('/api/uploadProofToImgbb', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ imageBase64: base64 })
             });
             const data = await resp.json();
@@ -910,11 +869,10 @@
             const form = e.target;
             const note = (form.note?.value || '').trim();
             const file = form.file?.files?.[0] || null;
-            let screenshotUrl = undefined; // undefined => do not change existing url
+            let screenshotUrl = undefined; 
             try {
                 loadingEl.classList.remove('hidden');
                 if (file) {
-                    // Upload to imgbb first
                     try {
                         screenshotUrl = await uploadToImgbb(file);
                     } catch (upErr) {
@@ -927,14 +885,11 @@
                 const token = await currentUser.getIdToken();
                 const payload = { postId, note: note || null };
                 if (typeof screenshotUrl === 'string') {
-                    payload.screenshotUrl = screenshotUrl; // only send if new upload
+                    payload.screenshotUrl = screenshotUrl;
                 }
                 const resp = await fetch('/api/joinTournament', {
                     method: 'PATCH',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                     body: JSON.stringify(payload)
                 });
                 const data = await resp.json();
@@ -981,8 +936,8 @@
                 <form id="contest-post-form" class="space-y-4">
                     <div class="grid grid-cols-2 gap-3">
                         <div class="flex flex-col">
-                            <label class="text-xs text-gray-600 mb-1">টুর্নামেন্টের নাম</label>
-                            <input type="text" name="contestName" placeholder="টুর্নামেন্টের নাম" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                            <label class="text-xs text-gray-600 mb-1">টুর্নামেন্টের নাম <span class="text-red-500">*</span></label>
+                            <input type="text" name="contestName" placeholder="টুর্নামেন্টের নাম" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" required>
                         </div>
                         <div class="flex flex-col">
                             <label class="text-xs text-gray-600 mb-1">Match No</label>
@@ -1055,7 +1010,7 @@
                         </div>
                     </div>
                     
- <div class="mt-4">
+                    <div class="mt-4">
                         <h4 class="text-md font-semibold text-gray-600 mb-1">Total Prize Details (পুরস্কারের তালিকা)</h4>
                         <div class="text-sm text-gray-700 mb-2">WIN PRIZE (ম্যানুয়াল): ৳<span id="win-prize-total">0</span></div>
                         <div id="prize-list-container" class="space-y-2">
@@ -1089,15 +1044,12 @@
             renderPreviewFromForm('#createPostModal');
         };
 
-        // Build a lightweight preview card using current form values
         const renderPreviewFromForm = (modalSelector) => {
             const form = document.querySelector(`${modalSelector} form`);
             if (!form) return;
             const get = (name, def='') => (form.elements[name]?.value || def);
             const start = get('startTime');
             const dateText = start ? new Date(start).toLocaleString('en-US', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }).replace(',', ' at') : '';
-            // compute total prize
-            // Use manual WIN PRIZE from input, no calculation
             const manualWinPrize = (form.elements['winPrize']?.value || '').toString().trim();
             const totalEl = document.querySelector(`${modalSelector} #win-prize-total`);
             if (totalEl) totalEl.textContent = manualWinPrize || '0';
@@ -1119,30 +1071,30 @@
                             <span class="text-xs font-semibold px-2 py-1 rounded-full bg-green-100 text-green-700">0/${maxPlayers} জন</span>
                         </div>
                     </div>
-                    <div class="mt-3 grid grid-cols-3 gap-3 text-[12px] text-gray-700 w-full">
+                    <div class="mt-3 grid grid-cols-3 gap-3 text-left">
                         <div class="bg-slate-50 rounded-lg p-2 border">
-                            <p class="text-[10px] text-gray-500">WIN PRIZE</p>
-                            <p class="font-semibold">৳${manualWinPrize || '0'}</p>
+                            <p class="text-[10px] text-gray-500 uppercase">WIN PRIZE</p>
+                            <p class="font-bold text-gray-800">৳${manualWinPrize || '0'}</p>
                         </div>
                         <div class="bg-slate-50 rounded-lg p-2 border">
-                            <p class="text-[10px] text-gray-500">ENTRY TYPE</p>
-                            <p class="font-semibold">${get('contestType','')}</p>
+                            <p class="text-[10px] text-gray-500 uppercase">ENTRY TYPE</p>
+                            <p class="font-bold text-gray-800">${get('contestType','')}</p>
                         </div>
                         <div class="bg-slate-50 rounded-lg p-2 border">
-                            <p class="text-[10px] text-gray-500">ENTRY FEE</p>
-                            <p class="font-semibold">৳${get('entryFee','0')}</p>
+                            <p class="text-[10px] text-gray-500 uppercase">ENTRY FEE</p>
+                            <p class="font-bold text-gray-800">৳${get('entryFee','0')}</p>
                         </div>
                         <div class="bg-slate-50 rounded-lg p-2 border">
-                            <p class="text-[10px] text-gray-500">PER KILL</p>
-                            <p class="font-semibold">${perKillText}</p>
+                            <p class="text-[10px] text-gray-500 uppercase">PER KILL</p>
+                            <p class="font-bold text-gray-800">${perKillText}</p>
                         </div>
                         <div class="bg-slate-50 rounded-lg p-2 border">
-                            <p class="text-[10px] text-gray-500">MAP</p>
-                            <p class="font-semibold">${get('map','')}</p>
+                            <p class="text-[10px] text-gray-500 uppercase">MAP</p>
+                            <p class="font-bold text-gray-800">${get('map','')}</p>
                         </div>
                         <div class="bg-slate-50 rounded-lg p-2 border">
-                            <p class="text-[10px] text-gray-500">VERSION</p>
-                            <p class="font-semibold">${get('version','MOBILE')}</p>
+                            <p class="text-[10px] text-gray-500 uppercase">VERSION</p>
+                            <p class="font-bold text-gray-800">${get('version','MOBILE')}</p>
                         </div>
                     </div>
                 </div>
@@ -1158,7 +1110,6 @@
             });
         };
 
-        // Inline update helper used by pencil icons
         const updatePostFieldInline = async (postId, key, rawVal) => {
             const postRef = doc(db, 'artifacts', appId, 'public', 'data', 'posts', postId);
             const snap = await getDoc(postRef);
@@ -1171,7 +1122,6 @@
                 updates.startTime = dt;
                 details.startTime = rawVal;
             } else {
-                // cast numbers where needed
                 const numKeys = ['entryFee','perKill','maxPlayers'];
                 let val = rawVal;
                 if (numKeys.includes(key)) {
@@ -1184,7 +1134,6 @@
             await updateDoc(postRef, updates);
         };
 
-        // Adds a prize row to the prize list and wires live preview updates
         const addPrizeField = (position = '', amount = '', modalSelector) => {
             const container = document.querySelector(`${modalSelector} #prize-list-container`);
             if (!container) return;
@@ -1199,16 +1148,12 @@
             const removeBtn = prizeField.querySelector('.remove-prize-btn');
             removeBtn.onclick = () => { prizeField.remove(); renderPreviewFromForm(modalSelector); };
             container.appendChild(prizeField);
-            // Attach listeners for live updates while typing
             const amountInput = prizeField.querySelector(`input[name="prize_amount_${index}"]`);
             const posInput = prizeField.querySelector(`input[name="prize_position_${index}"]`);
             amountInput?.addEventListener('input', () => renderPreviewFromForm(modalSelector));
             posInput?.addEventListener('input', () => renderPreviewFromForm(modalSelector));
-            // Trigger initial preview update
             renderPreviewFromForm(modalSelector);
         };
-
-        
         
         const handleSaveDraft = async (modalSelector) => {
             const form = document.querySelector(`${modalSelector} form`);
@@ -1253,11 +1198,8 @@
                 const draftsQuery = query(draftsCol, orderBy('updatedAt', 'desc'));
                 const snap = await getDocs(draftsQuery);
 
-                let listHTML = '';
-                if (snap.empty) {
-                    listHTML = '<p class="text-center text-gray-500">কোনো ড্রাফট নেই।</p>';
-                } else {
-                    listHTML = '<div class="space-y-3">';
+                let listHTML = snap.empty ? '<p class="text-center text-gray-500">কোনো ড্রাফট নেই।</p>' : '<div class="space-y-3">';
+                if (!snap.empty) {
                     snap.forEach(docSnap => {
                         const d = docSnap.data();
                         const draftId = docSnap.id;
@@ -1276,15 +1218,8 @@
                     });
                     listHTML += '</div>';
                 }
+                renderModal('draftsModal', 'ড্রাফটসমূহ', `<div class="space-y-3">${listHTML}</div>`, () => {});
 
-                const content = `
-                    <div class="space-y-3">
-                        ${listHTML}
-                    </div>
-                `;
-                renderModal('draftsModal', 'ড্রাফটসমূহ', content, () => {});
-
-                // Wire up actions
                 document.querySelectorAll('#draftsModal .load-draft-btn').forEach(btn => {
                     btn.addEventListener('click', async (e) => {
                         const id = e.currentTarget.getAttribute('data-id');
@@ -1292,15 +1227,10 @@
                         const draftDoc = await getDoc(draftRef);
                         if (!draftDoc.exists()) return showMessage('ড্রাফট পাওয়া যায়নি!', 'error');
                         const draft = draftDoc.data();
-
-                        // Ensure target form modal exists (drafts modal replaced the container)
                         const data = draft.data || {};
-                        // Close drafts list first (renderModal clears container after 300ms)
                         document.querySelector('#draftsModal .close-button')?.click();
-                        // Wait until the drafts modal cleanup has finished
                         await new Promise(r => setTimeout(r, 550));
 
-                        // Reopen the target modal unconditionally to avoid race with cleanup
                         let form;
                         if (modalSelector === '#createPostModal') {
                             openCreatePostModal();
@@ -1311,9 +1241,8 @@
                         } else {
                             form = document.querySelector(`${modalSelector} form`);
                         }
-                        if (!form) return; // safety
+                        if (!form) return;
 
-                        // Populate form fields from draft
                         for (const key in data) {
                             if (key !== 'prizes' && form.elements[key]) {
                                 form.elements[key].value = data[key];
@@ -1329,9 +1258,7 @@
                             }
                         }
                         showMessage('ড্রাফট লোড হয়েছে।', 'success');
-                        // Focus first field to make it clear the form is active
-                        const firstInput = form.querySelector('input, select, textarea');
-                        firstInput?.focus();
+                        form.querySelector('input, select, textarea')?.focus();
                     });
                 });
 
@@ -1340,11 +1267,9 @@
                         const id = e.currentTarget.getAttribute('data-id');
                         if (!confirm('ড্রাফট ডিলিট করবেন?')) return;
                         try {
-                            const draftRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'tournamentDrafts', id);
-                            await deleteDoc(draftRef);
+                            await deleteDoc(doc(db, 'artifacts', appId, 'users', currentUser.uid, 'tournamentDrafts', id));
                             showMessage('ড্রাফট ডিলিট হয়েছে।', 'success');
                             document.querySelector('#draftsModal .close-button')?.click();
-                            // Re-open to refresh list
                             handleLoadDraft(modalSelector);
                         } catch (err) {
                             showMessage(err.message || 'ড্রাফট ডিলিট ব্যর্থ।', 'error');
@@ -1385,9 +1310,6 @@
                 }
             }
             contestDetails.prizes = prizes;
-
-            // All fields are plain text inputs now (except status & start time),
-            // so no custom override handling is required.
 
             loadingEl.classList.remove('hidden');
             try {
@@ -1485,7 +1407,6 @@
                 document.getElementById('save-progress-btn').onclick = () => handleSaveDistribution(postId);
                 document.getElementById('confirm-distribute-btn').onclick = () => handleConfirmDistribution(postId);
 
-                // Wire up view-proof buttons
                 document.querySelectorAll('#managePrizesModal .view-proof-btn').forEach(btn => {
                     btn.addEventListener('click', (e) => {
                         const el = e.currentTarget;
@@ -1561,15 +1482,7 @@
                 participantsData[doc.id] = doc.data();
             });
             
-            const detailedWinners = winners.map(winner => {
-                const participant = participantsData[winner.userId] || {};
-                return {
-                    ...winner,
-                    fullName: participant.fullName || 'Unknown User',
-                    idValue: participant.idValue || 'N/A'
-                };
-            });
-
+            const detailedWinners = winners.map(winner => ({ ...winner, ...(participantsData[winner.userId] || { fullName: 'Unknown User', idValue: 'N/A' }) }));
             detailedWinners.sort((a, b) => b.amount - a.amount);
             
             let previewHTML = '';
@@ -1619,37 +1532,26 @@
             e.preventDefault();
             const password = e.target['admin-password'].value;
             if (!password) return showMessage('পাসওয়ার্ড দিন।', 'error');
-
             loadingEl.classList.remove('hidden');
-            
             try {
                 const user = auth.currentUser;
                 if (!user) throw new Error('প্রথমে লগইন করুন।');
-
-                // Optional: re-authenticate admin for UX confirmation
                 const credential = EmailAuthProvider.credential(user.email, password);
                 await reauthenticateWithCredential(user, credential);
-
                 const token = await user.getIdToken();
                 const resp = await fetch('/api/distributePrizes', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                     body: JSON.stringify({ postId, winners })
                 });
                 const result = await resp.json();
                 if (!resp.ok) throw new Error(result.message || 'বিতরণ ব্যর্থ হয়েছে।');
-
                 showMessage(result.message || `${winners.length} জন বিজয়ীকে সফলভাবে পুরস্কার প্রদান করা হয়েছে!`, 'success');
                 document.getElementById('adminAuthModal')?.querySelector('.close-button').click();
                 document.getElementById('managePrizesModal')?.querySelector('.close-button').click();
             } catch (error) {
                 let errorMessage = error?.message || 'একটি ত্রুটি হয়েছে।';
-                if (error.code === 'auth/wrong-password') {
-                    errorMessage = 'ভুল পাসওয়ার্ড। আবার চেষ্টা করুন।';
-                }
+                if (error.code === 'auth/wrong-password') errorMessage = 'ভুল পাসওয়ার্ড। আবার চেষ্টা করুন।';
                 showMessage(errorMessage, 'error');
             } finally {
                 loadingEl.classList.add('hidden');
@@ -1683,8 +1585,8 @@
                             <input type="text" name="contestName" value="${contestDetails.contestName}" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                         </div>
                         <div class="flex flex-col">
-                            <label class="text-xs text-gray-600 mb-1">গেমের নাম <span class="text-red-500">*</span></label>
-                            <input type="text" name="gameName" value="${contestDetails.gameName}" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                            <label class="text-xs text-gray-600 mb-1">গেমের নাম</label>
+                            <input type="text" name="gameName" value="${contestDetails.gameName}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                         </div>
                         <div class="flex flex-col">
                             <label class="text-xs text-gray-600 mb-1">গেম আইকন লিংক</label>
@@ -1699,7 +1601,7 @@
                             <input type="number" name="maxPlayers" value="${contestDetails.maxPlayers}" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                         </div>
                         <div class="flex flex-col col-span-2">
-                            <label class="text-xs text-gray-600 mb-1">שুরুর সময় <span class="text-red-500">*</span></label>
+                            <label class="text-xs text-gray-600 mb-1">শুরুর সময় <span class="text-red-500">*</span></label>
                             <input type="datetime-local" name="startTime" value="${startTimeForInput}" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                         </div>
                         <div class="flex flex-col">
@@ -1711,12 +1613,12 @@
                             <input type="text" name="contestType" value="${contestDetails.contestType || ''}" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="যেমন: 1v1, 2v2, Free for All">
                         </div>
                         <div class="flex flex-col">
-                            <label class="text-xs text-gray-600 mb-1">রুম আইডি <span class="text-red-500">*</span></label>
-                            <input type="text" name="roomId" value="${contestDetails.roomId}" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                            <label class="text-xs text-gray-600 mb-1">রুম আইডি</label>
+                            <input type="text" name="roomId" value="${contestDetails.roomId}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                         </div>
                         <div class="flex flex-col">
-                            <label class="text-xs text-gray-600 mb-1">রুম পাসওয়ার্ড <span class="text-red-500">*</span></label>
-                            <input type="text" name="roomPass" value="${contestDetails.roomPass}" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                            <label class="text-xs text-gray-600 mb-1">রুম পাসওয়ার্ড</label>
+                            <input type="text" name="roomPass" value="${contestDetails.roomPass}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                         </div>
                         <div class="flex flex-col col-span-2">
                             <label class="text-xs text-gray-600 mb-1">স্ট্যাটাস <span class="text-red-500">*</span></label>
@@ -1766,13 +1668,8 @@
             }
             updatedDetails.prizes = prizes;
 
-            // If custom text fields provided, override the dropdown values
-            if ((formData.get('requiredIdTypeCustom') || '').trim()) {
-                updatedDetails.requiredIdType = (formData.get('requiredIdTypeCustom') || '').trim();
-            }
-            if ((formData.get('contestTypeCustom') || '').trim()) {
-                updatedDetails.contestType = (formData.get('contestTypeCustom') || '').trim();
-            }
+            if ((formData.get('requiredIdTypeCustom') || '').trim()) updatedDetails.requiredIdType = (formData.get('requiredIdTypeCustom') || '').trim();
+            if ((formData.get('contestTypeCustom') || '').trim()) updatedDetails.contestType = (formData.get('contestTypeCustom') || '').trim();
 
             loadingEl.classList.remove('hidden');
             try {
@@ -1806,25 +1703,19 @@
         };
 
         const openPlayerProofModal = (fullName, idValue, note, screenshotUrl) => {
-            let body = '';
-            body += `<div class="space-y-3">`;
+            let body = '<div class="space-y-3">';
             body += `<div><p class="text-sm text-gray-600">প্লেয়ার</p><p class="font-semibold">${fullName}</p><p class="text-xs text-gray-500">ID: ${idValue}</p></div>`;
             body += `<div><p class="text-sm text-gray-600 mb-1">নোট</p><div class="p-3 rounded-lg bg-slate-50 border">${note ? note.replace(/\n/g,'<br/>') : '<span class=\'text-gray-400\'>কোনো নোট নেই</span>'}</div></div>`;
             body += `<div><p class="text-sm text-gray-600 mb-1">স্ক্রিনশট</p>`;
             if (screenshotUrl) {
-                body += `<a href="${screenshotUrl}" target="_blank" class="block">
-                           <img src="${screenshotUrl}" alt="proof" class="max-h-72 rounded-lg border object-contain w-full bg-white"/>
-                         </a>`;
+                body += `<a href="${screenshotUrl}" target="_blank" class="block"><img src="${screenshotUrl}" alt="proof" class="max-h-72 rounded-lg border object-contain w-full bg-white"/></a>`;
             } else {
                 body += `<div class="p-3 rounded-lg bg-slate-50 border text-gray-400">কোনো স্ক্রিনশট নেই</div>`;
             }
-            body += `</div>`;
-            body += `</div>`;
+            body += `</div></div>`;
             renderModal('playerProofModal', 'প্লেয়ারের প্রুফ', body);
         };
 
-        // Initial Load Event Listener
-        // Header logout removed; keep backward-compat if element exists
         const legacyLogoutBtn = document.getElementById('logout-btn');
         if (legacyLogoutBtn) legacyLogoutBtn.onclick = () => signOut(auth);
 
