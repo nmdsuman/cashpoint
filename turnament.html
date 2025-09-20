@@ -458,10 +458,14 @@
             // Card container style similar to the reference UI
             postElement.className = `bg-white p-4 rounded-xl shadow-md border border-slate-200 ${statusColorClass.replace('border-', 'border-l-4 border-')}`;
 
-            // Compute total prize for the header stats (fallback to sum of prizes)
+            // Compute/display total prize: prefer manual winPrize text; else sum of prizes
+            let totalPrizeDisplay = (contestDetails.winPrize ?? '').toString().trim();
             let totalPrize = 0;
-            if (Array.isArray(contestDetails.prizes)) {
-                totalPrize = contestDetails.prizes.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+            if (!totalPrizeDisplay) {
+                if (Array.isArray(contestDetails.prizes)) {
+                    totalPrize = contestDetails.prizes.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+                }
+                totalPrizeDisplay = totalPrize.toFixed(0);
             }
             const prizeListHTML = Array.isArray(contestDetails.prizes) && contestDetails.prizes.length
                 ? contestDetails.prizes.map((prize, index) => {
@@ -574,7 +578,7 @@
                 <div class="mt-3 grid grid-cols-3 gap-3 text-[12px] text-gray-700 w-full">
                     <div class="bg-slate-50 rounded-lg p-2 border">
                         <p class="text-[10px] text-gray-500">WIN PRIZE</p>
-                        <p class="font-semibold">৳<span data-field="totalPrize">${totalPrize.toFixed(0)}</span></p>
+                        <p class="font-semibold">৳<span data-field="totalPrize">${totalPrizeDisplay}</span>${editIcon('winPrize')}</p>
                     </div>
                     <div class="bg-slate-50 rounded-lg p-2 border">
                         <p class="text-[10px] text-gray-500">ENTRY TYPE</p>
@@ -609,7 +613,7 @@
                     <div class="flex items-center gap-2 bg-slate-50 border rounded-lg px-3 py-2">
                         <i class="fas fa-trophy text-yellow-500"></i>
                         <span class="text-gray-700">Total Prize:</span>
-                        <span class="font-semibold">৳${totalPrize.toFixed(0)}</span>
+                        <span class="font-semibold">৳${totalPrizeDisplay}</span>
                     </div>
                 </div>
 
@@ -979,6 +983,10 @@
                             <input type="text" name="gameIconUrl" placeholder="https://..." class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                         </div>
                         <div class="flex flex-col">
+                            <label class="text-xs text-gray-600 mb-1">WIN PRIZE (ম্যানুয়াল)</label>
+                            <input type="text" name="winPrize" placeholder="যেমন: 500" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                        </div>
+                        <div class="flex flex-col">
                             <label class="text-xs text-gray-600 mb-1">ENTRY FEE (এন্ট্রি ফি) <span class="text-red-500">*</span></label>
                             <input type="number" name="entryFee" placeholder="এন্ট্রি ফি (৳)" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                         </div>
@@ -1035,7 +1043,7 @@
                     
  <div class="mt-4">
                         <h4 class="text-md font-semibold text-gray-600 mb-1">Total Prize Details (পুরস্কারের তালিকা)</h4>
-                        <div class="text-sm text-gray-700 mb-2">WIN PRIZE: ৳<span id="win-prize-total">0</span></div>
+                        <div class="text-sm text-gray-700 mb-2">WIN PRIZE (ম্যানুয়াল): ৳<span id="win-prize-total">0</span></div>
                         <div id="prize-list-container" class="space-y-2">
                             <div class="flex items-center space-x-2">
                                 <input type="text" name="prize_position_0" placeholder="অবস্থান" class="w-1/2 px-3 py-2 border border-gray-300 rounded-lg text-sm" required>
@@ -1075,17 +1083,10 @@
             const start = get('startTime');
             const dateText = start ? new Date(start).toLocaleString('en-US', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }).replace(',', ' at') : '';
             // compute total prize
-            const prizeContainer = form.querySelector('#prize-list-container');
-            let totalPrize = 0;
-            if (prizeContainer) {
-                prizeContainer.querySelectorAll('div').forEach(row => {
-                    const amt = parseFloat(row.querySelector('input[name^="prize_amount_"]')?.value || '0');
-                    if (!isNaN(amt)) totalPrize += amt;
-                });
-            }
-            // reflect total in the form header too
+            // Use manual WIN PRIZE from input, no calculation
+            const manualWinPrize = (form.elements['winPrize']?.value || '').toString().trim();
             const totalEl = document.querySelector(`${modalSelector} #win-prize-total`);
-            if (totalEl) totalEl.textContent = totalPrize.toFixed(0);
+            if (totalEl) totalEl.textContent = manualWinPrize || '0';
             const perKill = get('perKill');
             const perKillText = perKill ? `৳${perKill}` : '—';
             const maxPlayers = parseInt(get('maxPlayers','0'), 10) || 0;
@@ -1107,7 +1108,7 @@
                     <div class="mt-3 grid grid-cols-3 gap-3 text-[12px] text-gray-700 w-full">
                         <div class="bg-slate-50 rounded-lg p-2 border">
                             <p class="text-[10px] text-gray-500">WIN PRIZE</p>
-                            <p class="font-semibold">৳${totalPrize.toFixed(0)}</p>
+                            <p class="font-semibold">৳${manualWinPrize || '0'}</p>
                         </div>
                         <div class="bg-slate-50 rounded-lg p-2 border">
                             <p class="text-[10px] text-gray-500">ENTRY TYPE</p>
