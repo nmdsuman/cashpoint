@@ -556,27 +556,27 @@
                 </div>
 
                 <div class="mt-4 grid grid-cols-3 gap-y-4 gap-x-2">
-                    <div>
+                    <div class="text-center">
                         <p class="text-[10px] text-gray-500 uppercase">WIN PRIZE</p>
                         <p class="font-bold text-gray-800 text-base">৳<span data-field="totalPrize">${totalPrizeDisplay}</span>${editIcon('winPrize')}</p>
                     </div>
-                    <div>
+                    <div class="text-center">
                         <p class="text-[10px] text-gray-500 uppercase">ENTRY TYPE</p>
                         <p class="font-bold text-gray-800 text-base"><span data-field="contestType">${entryTypeRaw || '—'}</span>${editIcon('contestType')}</p>
                     </div>
-                    <div>
+                    <div class="text-center">
                         <p class="text-[10px] text-gray-500 uppercase">ENTRY FEE</p>
                         <p class="font-bold text-gray-800 text-base">৳<span data-field="entryFee">${contestDetails.entryFee || 0}</span>${editIcon('entryFee')}</p>
                     </div>
-                    <div>
+                    <div class="text-center">
                         <p class="text-[10px] text-gray-500 uppercase">PER KILL</p>
                         <p class="font-bold text-gray-800 text-base"><span data-field="perKill">${perKill}</span>${editIcon('perKill')}</p>
                     </div>
-                    <div>
+                    <div class="text-center">
                         <p class="text-[10px] text-gray-500 uppercase">MAP</p>
                         <p class="font-bold text-gray-800 text-base"><span data-field="map">${mapName}</span>${editIcon('map')}</p>
                     </div>
-                    <div>
+                    <div class="text-center">
                         <p class="text-[10px] text-gray-500 uppercase">VERSION</p>
                         <p class="font-bold text-gray-800 text-base"><span data-field="version">${version}</span>${editIcon('version')}</p>
                     </div>
@@ -597,13 +597,13 @@
                 </div>
 
                 <div class="mt-4 border-t border-slate-200 pt-3">
-                    <div class="grid grid-cols-2 gap-2 text-sm">
-                        <button class="toggle-room flex justify-between items-center w-full bg-slate-100 border border-slate-200 text-slate-800 font-semibold p-2 rounded-lg hover:bg-slate-200 transition">
-                            <span><i class="fas fa-info-circle text-slate-500 w-5 mr-1"></i>Room Details</span>
+                    <div class="grid grid-cols-2 gap-2 text-xs">
+                        <button class="toggle-room flex justify-between items-center w-full bg-slate-100 border border-slate-200 text-slate-800 font-semibold py-2 px-1 rounded-lg hover:bg-slate-200 transition">
+                            <span><i class="fas fa-info-circle text-slate-500 w-4 mr-1"></i>Room Details</span>
                             <i class="fas fa-chevron-down transform transition-transform"></i>
                         </button>
-                        <button class="toggle-prize flex justify-between items-center w-full bg-slate-100 border border-slate-200 text-slate-800 font-semibold p-2 rounded-lg hover:bg-slate-200 transition">
-                            <span><i class="fas fa-trophy text-yellow-500 w-5 mr-1"></i>Total Prize</span>
+                        <button class="toggle-prize flex justify-between items-center w-full bg-slate-100 border border-slate-200 text-slate-800 font-semibold py-2 px-1 rounded-lg hover:bg-slate-200 transition">
+                            <span><i class="fas fa-trophy text-yellow-500 w-4 mr-1"></i>Total Prize</span>
                             <i class="fas fa-chevron-down transform transition-transform"></i>
                         </button>
                     </div>
