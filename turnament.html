@@ -46,57 +46,6 @@
             color: white;
             font-weight: 600;
         }
-        /* Styles for new post card */
-        .post-card {
-            background-color: white;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-            overflow: hidden;
-            border: 1px solid #e5e7eb;
-        }
-        .post-card .details-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 1rem;
-            padding: 1rem;
-            border-top: 1px solid #f3f4f6;
-            border-bottom: 1px solid #f3f4f6;
-        }
-        .post-card .details-grid > div {
-            text-align: center;
-        }
-        .post-card .details-grid .label {
-            font-size: 0.7rem;
-            color: #6b7280;
-            text-transform: uppercase;
-            font-weight: 600;
-        }
-        .post-card .details-grid .value {
-            font-size: 1rem;
-            color: #111827;
-            font-weight: 700;
-        }
-        .post-card summary {
-            cursor: pointer;
-            font-weight: 600;
-        }
-        /* In-place edit styles for form */
-        .inplace-edit .display-view {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            cursor: pointer;
-        }
-        .inplace-edit .edit-icon {
-            opacity: 0.5;
-            transition: opacity 0.2s;
-        }
-        .inplace-edit .display-view:hover .edit-icon {
-            opacity: 1;
-        }
-        .inplace-edit .input-view {
-            display: none;
-        }
     </style>
 </head>
 
@@ -182,7 +131,7 @@
         // Firebase SDKs
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut, EmailAuthProvider, reauthenticateWithCredential } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, query, onSnapshot, orderBy, addDoc, getDocs, where, runTransaction, deleteDoc, serverTimestamp, increment } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, query, onSnapshot, orderBy, addDoc, getDocs, where, runTransaction, deleteDoc, serverTimestamp, increment, Timestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Use CashPoint Firebase configuration (shared across CashPoint and Tournament)
         const firebaseConfig = {
@@ -425,20 +374,16 @@
                     const distance = endTime - now;
 
                     if (distance < 0) {
-                        el.innerHTML = `<span class="text-green-600 font-bold">শুরু হয়ে গেছে</span>`;
+                        el.innerHTML = `<span class="text-green-600 font-bold">Started</span>`;
                         return;
                     }
-                    const days = Math.floor(distance / (1000 * 60 * 60 * 24));
-                    const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                    const totalHours = Math.floor(distance / (1000 * 60 * 60));
                     const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
                     const seconds = Math.floor((distance % (1000 * 60)) / 1000);
-                    
-                    let countdownText = '';
-                    if (days > 0) countdownText += `${days}d `;
-                    if (hours > 0 || days > 0) countdownText += `${hours}h `;
-                    countdownText += `${minutes}m ${seconds}s`;
-                    
-                    el.textContent = countdownText;
+                    const hh = String(totalHours).padStart(2,'0');
+                    const mm = String(minutes).padStart(2,'0');
+                    const ss = String(seconds).padStart(2,'0');
+                    el.textContent = `${hh}h:${mm}m:${ss}s`;
                 });
             }, 1000);
         };
@@ -465,9 +410,12 @@
             }
 
             postsUnsubscribe = onSnapshot(postsQuery, async (snapshot) => {
-                const postPromises = snapshot.docs.map(postDoc => {
+                const postPromises = snapshot.docs.map((postDoc, idx) => {
                     const post = { id: postDoc.id, ...postDoc.data() };
-                    return createPostElement(post, currentUserRole);
+                    const matchNumber = (post.matchNo !== undefined && post.matchNo !== null)
+                        ? Number(post.matchNo)
+                        : (idx + 1); // fallback if not set
+                    return createPostElement(post, currentUserRole, matchNumber);
                 });
 
                 const postElements = await Promise.all(postPromises);
@@ -487,12 +435,11 @@
         };
 
 
-        const createPostElement = async (post, currentUserRole) => {
+        const createPostElement = async (post, currentUserRole, matchNumber = 1) => {
             const postElement = document.createElement('div');
             postElement.id = `post-${post.id}`;
-            postElement.className = 'post-card';
-
-            const contestDetails = JSON.parse(post.contestDetails || '{}');
+            
+            const contestDetails = JSON.parse(post.contestDetails);
             const startTime = post.startTime ? post.startTime.toDate() : new Date(contestDetails.startTime);
 
             const participantsRef = collection(db, 'artifacts', appId, 'public', 'data', 'posts', post.id, 'participants');
@@ -504,130 +451,264 @@
 
             const isFull = participantsCount >= contestDetails.maxPlayers;
             
-            let prizeListHTML = '';
-            if (contestDetails.prizes && contestDetails.prizes.length > 0) {
-                prizeListHTML = contestDetails.prizes.map((prize, index) => {
-                    let icon = 'fas fa-trophy';
-                    let color = 'text-gray-500';
-                    if (index === 0) { icon = 'fas fa-crown'; color = 'text-yellow-500'; }
-                    if (index === 1) { color = 'text-gray-400'; }
-                    if (index === 2) { color = 'text-orange-400'; }
-                    return `<li class="flex justify-between"><span><i class="${icon} ${color} w-5 mr-2"></i>${prize.position}</span> <span class="font-semibold">৳${prize.amount}</span></li>`;
-                }).join('');
-            } else {
-                 prizeListHTML = '<li>পুরস্কার ঘোষণা করা হয়নি</li>';
+            let statusColorClass = 'border-blue-500';
+            if (post.status === 'inactive') statusColorClass = 'border-gray-400';
+            if (post.status === 'complete') statusColorClass = 'border-green-500';
+
+            // Card container style similar to the reference UI
+            postElement.className = `bg-white p-4 rounded-xl shadow-md border border-slate-200 ${statusColorClass.replace('border-', 'border-l-4 border-')}`;
+
+            // Compute total prize for the header stats (fallback to sum of prizes)
+            let totalPrize = 0;
+            if (Array.isArray(contestDetails.prizes)) {
+                totalPrize = contestDetails.prizes.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+            }
+            const prizeListHTML = Array.isArray(contestDetails.prizes) && contestDetails.prizes.length
+                ? contestDetails.prizes.map((prize, index) => {
+                    let iconColor = 'text-gray-400';
+                    if (index === 0) iconColor = 'text-yellow-500';
+                    if (index === 1) iconColor = 'text-gray-400';
+                    if (index === 2) iconColor = 'text-orange-400';
+                    return `<span class="inline-flex items-center"><i class="fas fa-trophy w-4 mr-1 ${iconColor}"></i>${prize.position}: ৳${prize.amount}</span>`;
+                }).join('')
+                : '<span><i class="fas fa-trophy w-4 mr-1 text-yellow-500"></i>পুরস্কার ঘোষণা করা হয়নি</span>';
+            
+            let actionSectionHTML = '';
+
+            if (currentUserRole === 'user') {
+                if (hasJoined) {
+                    actionSectionHTML = `
+                        <div class="mt-4 p-3 rounded-lg bg-blue-50 border border-blue-200 text-sm">
+                            <h4 class="font-bold text-blue-800 mb-2">আপনি জয়েন করেছেন!</h4>
+                            <p class="font-semibold text-blue-800 flex justify-between items-center">রুম আইডি: <code class="bg-blue-200 text-blue-900 px-2 py-1 rounded">${contestDetails.roomId}</code> <i onclick="copyToClipboard('${contestDetails.roomId}')" class="fas fa-copy cursor-pointer text-gray-500 ml-2"></i></p>
+                            <p class="font-semibold text-blue-800 flex justify-between items-center mt-1">পাসওয়ার্ড: <code class="bg-blue-200 text-blue-900 px-2 py-1 rounded">${contestDetails.roomPass}</code> <i onclick="copyToClipboard('${contestDetails.roomPass}')" class="fas fa-copy cursor-pointer text-gray-500 ml-2"></i></p>
+                            <button class="mt-3 w-full bg-indigo-600 text-white font-semibold py-2 rounded-lg hover:bg-indigo-700 transition submit-proof-btn">প্রুফ দিন (ঐচ্ছিক)</button>
+                        </div>`;
+                } else if (isFull) {
+                    actionSectionHTML = `<div class="mt-4"><button class="w-full py-2 bg-red-400 text-white font-semibold rounded-lg cursor-not-allowed" disabled>টুর্নামেন্ট পূর্ণ</button></div>`;
+                } else {
+                    actionSectionHTML = `
+                        <div id="action-container-${post.id}" class="mt-4">
+                             <button class="join-btn w-full py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition">জয়েন করুন (৳${contestDetails.entryFee})</button>
+                        </div>`;
+                }
+            } else if (currentUserRole === 'admin') {
+                 let viewPlayerButtonClass = 'bg-indigo-500 hover:bg-indigo-600';
+                 if (post.status === 'prizes_distributed') {
+                    viewPlayerButtonClass = 'bg-gray-400 cursor-not-allowed';
+                 }
+                actionSectionHTML = `
+                    <div class="mt-4 p-3 rounded-lg bg-blue-50 border border-blue-200 text-sm">
+                        <p class="font-semibold text-blue-800 flex justify-between items-center">রুম আইডি: <code class="bg-blue-200 text-blue-900 px-2 py-1 rounded">${contestDetails.roomId}</code> <i onclick="copyToClipboard('${contestDetails.roomId}')" class="fas fa-copy cursor-pointer text-gray-500 ml-2"></i></p>
+                        <p class="font-semibold text-blue-800 flex justify-between items-center mt-1">পাসওয়ার্ড: <code class="bg-blue-200 text-blue-900 px-2 py-1 rounded">${contestDetails.roomPass}</code> <i onclick="copyToClipboard('${contestDetails.roomPass}')" class="fas fa-copy cursor-pointer text-gray-500 ml-2"></i></p>
+                    </div>
+                    <div class="flex space-x-2 mt-4">
+                        <button class="view-players-btn flex-1 ${viewPlayerButtonClass} text-white font-semibold text-xs py-2 px-3 rounded-lg transition">প্লেয়ার দেখুন</button>
+                        <button class="edit-post-btn flex-1 bg-yellow-500 text-white font-semibold text-xs py-2 px-3 rounded-lg hover:bg-yellow-600 transition">এডিট করুন</button>
+                        <button class="delete-post-btn flex-1 bg-red-500 text-white font-semibold text-xs py-2 px-3 rounded-lg hover:bg-red-600 transition">ডিলিট</button>
+                    </div>`;
             }
 
-            let joinButtonHTML = '';
-            if (currentUserRole === 'user') {
-                if (isFull) {
-                    joinButtonHTML = `<button class="w-full py-2.5 bg-red-400 text-white font-semibold rounded-lg cursor-not-allowed text-base" disabled>পূর্ণ</button>`;
-                } else {
-                    joinButtonHTML = `<button class="join-btn w-full py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition text-base">জয়েন করুন</button>`;
+            let adminStatusLabel = '';
+            if (currentUserRole === 'admin') {
+                let statusText = post.status ? post.status.charAt(0).toUpperCase() + post.status.slice(1) : 'Unknown';
+                let statusClass = 'bg-blue-100 text-blue-700';
+                if(post.status === 'inactive') statusClass = 'bg-gray-100 text-gray-700';
+                if(post.status === 'complete') statusClass = 'bg-green-100 text-green-700';
+                if(post.status === 'prizes_distributed') {
+                    statusText = 'Distributed';
+                    statusClass = 'bg-purple-100 text-purple-700';
                 }
+                adminStatusLabel = `<span class="text-xs font-semibold px-2 py-1 rounded-full ${statusClass}">${statusText}</span>`;
             }
-            
-            const progressPercentage = (participantsCount / contestDetails.maxPlayers) * 100;
+
+            // Prefer icon image if provided; show icon first and name next to it
+            const gameLabelHTML = contestDetails.gameIconUrl
+                ? `<div class="flex items-center gap-2 mt-1">
+                        <img src="${contestDetails.gameIconUrl}" alt="${contestDetails.gameName || 'game'}" class="h-12 w-12 object-cover rounded" onerror="this.style.display='none'">
+                        <span class="text-sm font-medium text-gray-600">${contestDetails.gameName || ''}</span>
+                   </div>`
+                : `<span class="text-sm font-medium text-gray-500">${contestDetails.gameName || ''}</span>`;
+
+            // Helper to show edit pencil for admins
+            const editIcon = (key) => currentUserRole === 'admin' ? ` <i class="fas fa-pen text-gray-400 hover:text-gray-700 cursor-pointer text-xs align-middle ml-1" data-edit="${key}" title="Edit"></i>` : '';
+
+            const entryTypeRaw = (contestDetails.contestType ?? '').toString();
+            const perKillRaw = (contestDetails.perKill ?? '').toString();
+            const perKill = perKillRaw.trim() === ''
+                ? '—'
+                : (isFinite(Number(perKillRaw)) ? `৳${Number(perKillRaw)}` : perKillRaw);
+            const mapName = (contestDetails.map ?? '—').toString();
+            const version = (contestDetails.version ?? 'MOBILE').toString();
+            const postShortId = `#${String(matchNumber).padStart(4,'0')}`;
+            const dateText = startTime.toLocaleString('en-US', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }).replace(',', ' at');
+
+            const remainingSpots = Math.max((contestDetails.maxPlayers || 0) - participantsCount, 0);
+            const canJoinHeader = (currentUserRole === 'user') && !hasJoined && !isFull;
 
             postElement.innerHTML = `
-                <div class="p-4">
-                    <div class="flex items-start gap-4">
-                        <img src="${contestDetails.gameIconUrl || 'https://via.placeholder.com/80'}" alt="${contestDetails.gameName}" class="w-16 h-16 object-cover rounded-lg bg-slate-200">
-                        <div class="flex-1">
-                            <h3 class="font-bold text-gray-900 text-lg">${contestDetails.contestName}</h3>
-                            <p class="text-sm text-gray-500">${contestDetails.gameName} | ${contestDetails.version}</p>
-                            <p class="text-xs text-gray-500 mt-1"><i class="far fa-calendar-alt mr-1"></i> ${startTime.toLocaleString('bn-BD', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute:'2-digit' })}</p>
-                        </div>
+                <div class="flex items-start justify-between w-full">
+                    <div class="min-w-0">
+                        <p class="text-base sm:text-lg font-bold text-gray-900"><span data-field="contestName">${contestDetails.contestName || 'Tournament'}</span>${editIcon('contestName')}</p>
+                        <p class="text-xs text-gray-500 mt-0.5"><span data-field="startTimeText">${dateText}</span>${editIcon('startTime')}</p>
+                        ${gameLabelHTML.replace('</span>', `</span>${editIcon('gameName')}`)}
+                    </div>
+                    <div class="flex flex-col items-end gap-2">
+                        <span class="text-[10px] font-bold bg-orange-100 text-orange-700 px-2 py-1 rounded-full">${postShortId}</span>
+                        <span class="text-xs font-semibold px-2 py-1 rounded-full ${isFull ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}">${participantsCount}/${contestDetails.maxPlayers} জন</span>
+                        ${adminStatusLabel}
+                        ${canJoinHeader ? `<button class="header-join-btn bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-4 py-2 rounded-lg">Join</button>` : ''}
                     </div>
                 </div>
 
-                <div class="details-grid">
-                    <div>
-                        <div class="label">Win Prize</div>
-                        <div class="value text-green-600">৳${contestDetails.totalPrizePool || '0'}</div>
+                <div class="mt-1">
+                    <div class="flex items-center justify-between text-[11px] text-gray-500">
+                        <span>Only ${remainingSpots} spots are left</span>
+                        <span>${participantsCount}/${contestDetails.maxPlayers}</span>
                     </div>
-                    <div>
-                        <div class="label">Entry Type</div>
-                        <div class="value">${contestDetails.contestType}</div>
-                    </div>
-                    <div>
-                        <div class="label">Entry Fee</div>
-                        <div class="value">৳${contestDetails.entryFee}</div>
-                    </div>
-                    <div>
-                        <div class="label">Per Kill</div>
-                        <div class="value text-red-600">৳${contestDetails.perKillPrize || '0'}</div>
-                    </div>
-                    <div>
-                        <div class="label">Map</div>
-                        <div class="value">${contestDetails.mapName || 'N/A'}</div>
-                    </div>
-                    <div>
-                        <div class="label">Version</div>
-                        <div class="value">${contestDetails.version || 'N/A'}</div>
+                    <div class="mt-1 h-2 w-full bg-slate-200 rounded-full overflow-hidden">
+                        <div class="h-full bg-slate-500" style="width: ${Math.min(100, Math.max(0, Math.round((participantsCount / (contestDetails.maxPlayers || 1)) * 100)))}%"></div>
                     </div>
                 </div>
 
-                <div class="p-4 space-y-3">
-                    <div class="space-y-1">
-                        <div class="flex justify-between text-xs font-medium text-gray-500">
-                            <span>খেলোয়াড়</span>
-                            <span>${participantsCount}/${contestDetails.maxPlayers}</span>
-                        </div>
-                        <div class="w-full bg-gray-200 rounded-full h-2">
-                            <div class="bg-blue-600 h-2 rounded-full" style="width: ${progressPercentage}%"></div>
+                <div class="mt-3 grid grid-cols-3 gap-3 text-[12px] text-gray-700 w-full">
+                    <div class="bg-slate-50 rounded-lg p-2 border">
+                        <p class="text-[10px] text-gray-500">WIN PRIZE</p>
+                        <p class="font-semibold">৳<span data-field="totalPrize">${totalPrize.toFixed(0)}</span></p>
+                    </div>
+                    <div class="bg-slate-50 rounded-lg p-2 border">
+                        <p class="text-[10px] text-gray-500">ENTRY TYPE</p>
+                        <p class="font-semibold"><span data-field="contestType">${entryTypeRaw || '—'}</span>${editIcon('contestType')}</p>
+                    </div>
+                    <div class="bg-slate-50 rounded-lg p-2 border">
+                        <p class="text-[10px] text-gray-500">ENTRY FEE</p>
+                        <p class="font-semibold">৳<span data-field="entryFee">${contestDetails.entryFee || 0}</span>${editIcon('entryFee')}</p>
+                    </div>
+                    <div class="bg-slate-50 rounded-lg p-2 border">
+                        <p class="text-[10px] text-gray-500">PER KILL</p>
+                        <p class="font-semibold"><span data-field="perKill">${perKill}</span>${editIcon('perKill')}</p>
+                    </div>
+                    <div class="bg-slate-50 rounded-lg p-2 border">
+                        <p class="text-[10px] text-gray-500">MAP</p>
+                        <p class="font-semibold"><span data-field="map">${mapName}</span>${editIcon('map')}</p>
+                    </div>
+                    <div class="bg-slate-50 rounded-lg p-2 border">
+                        <p class="text-[10px] text-gray-500">VERSION</p>
+                        <p class="font-semibold"><span data-field="version">${version}</span>${editIcon('version')}</p>
+                    </div>
+                </div>
+
+                ${actionSectionHTML}
+
+                <div class="mt-2 grid grid-cols-2 gap-2 text-[12px]">
+                    <div class="flex items-center gap-2 bg-slate-50 border rounded-lg px-3 py-2">
+                        <i class="fas fa-fire text-orange-500"></i>
+                        <span class="text-gray-700">Per Kill:</span>
+                        <span class="font-semibold">${perKill}</span>
+                    </div>
+                    <div class="flex items-center gap-2 bg-slate-50 border rounded-lg px-3 py-2">
+                        <i class="fas fa-trophy text-yellow-500"></i>
+                        <span class="text-gray-700">Total Prize:</span>
+                        <span class="font-semibold">৳${totalPrize.toFixed(0)}</span>
+                    </div>
+                </div>
+
+                <div class="mt-3">
+                    <div class="flex items-center justify-between text-xs">
+                        <button class="toggle-room btn-room text-slate-700 bg-slate-100 border px-3 py-1.5 rounded-lg hover:bg-slate-200">Room Details</button>
+                        <button class="toggle-prize btn-prize text-slate-700 bg-slate-100 border px-3 py-1.5 rounded-lg hover:bg-slate-200">Total Prize Details</button>
+                    </div>
+                    <div class="room-details hidden mt-2 text-sm bg-slate-50 border rounded-lg p-3">
+                        <div class="space-y-1">
+                            <div class="flex justify-between"><span class="text-gray-600">Room ID</span><code class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded">${contestDetails.roomId || '—'}</code></div>
+                            <div class="flex justify-between"><span class="text-gray-600">Password</span><code class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded">${contestDetails.roomPass || '—'}</code></div>
                         </div>
                     </div>
-                    ${!hasJoined ? joinButtonHTML : ''}
-                </div>
-                
-                <div class="p-4 border-t border-gray-100 space-y-2 bg-slate-50">
-                     <details>
-                        <summary class="text-sm text-gray-700">🏆 মোট পুরস্কারের বিবরণ</summary>
-                        <ul class="mt-2 pl-4 text-sm text-gray-600 space-y-1">${prizeListHTML}</ul>
-                    </details>
-                    ${hasJoined || currentUserRole === 'admin' ? `
-                    <details>
-                        <summary class="text-sm text-gray-700">🔑 রুমের বিবরণ</summary>
-                        <div class="mt-2 pl-4 text-sm text-gray-800 space-y-1">
-                           <p class="flex justify-between items-center"><strong>রুম আইডি:</strong> <code class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded">${contestDetails.roomId || 'TBA'}</code> <i onclick="copyToClipboard('${contestDetails.roomId}')" class="fas fa-copy cursor-pointer text-gray-500 ml-2"></i></p>
-                           <p class="flex justify-between items-center"><strong>পাসওয়ার্ড:</strong> <code class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded">${contestDetails.roomPass || 'TBA'}</code> <i onclick="copyToClipboard('${contestDetails.roomPass}')" class="fas fa-copy cursor-pointer text-gray-500 ml-2"></i></p>
-                        </div>
-                    </details>
-                    ` : ''}
-                </div>
-                
-                ${hasJoined && currentUserRole === 'user' ? `
-                    <div class="p-4 border-t border-gray-100">
-                         <button class="submit-proof-btn w-full bg-indigo-600 text-white font-semibold py-2 rounded-lg hover:bg-indigo-700 transition">প্রুফ দিন</button>
+                    <div class="prize-details hidden mt-2 text-sm bg-slate-50 border rounded-lg p-3">
+                        <div class="space-y-1">${prizeListHTML}</div>
                     </div>
-                ` : ''}
+                </div>
 
-                 ${currentUserRole === 'admin' ? `
-                    <div class="flex space-x-2 p-4 border-t bg-slate-50">
-                        <button class="view-players-btn flex-1 bg-indigo-500 hover:bg-indigo-600 text-white font-semibold text-xs py-2 px-3 rounded-lg transition">প্লেয়ার দেখুন</button>
-                        <button class="edit-post-btn flex-1 bg-yellow-500 text-white font-semibold text-xs py-2 px-3 rounded-lg hover:bg-yellow-600 transition">এডিট</button>
-                        <button class="delete-post-btn flex-1 bg-red-500 text-white font-semibold text-xs py-2 px-3 rounded-lg hover:bg-red-600 transition">ডিলিট</button>
-                    </div>` : ''
-                 }
-                
-                <div id="action-container-${post.id}" class="px-4 pb-4"></div>
-
-                <div class="bg-gray-800 text-white text-center py-2">
-                    <p class="text-sm">শুরু হচ্ছে: <span id="countdown-${post.id}" data-countdown-end="${startTime.getTime()}" class="font-bold tracking-wider">লোড হচ্ছে...</span></p>
+                <div class="mt-3 rounded-lg bg-green-100 border border-green-200 p-2 flex items-center justify-between">
+                    <span class="text-green-700 font-semibold text-xs">STARTS IN</span>
+                    <span id="countdown-${post.id}" data-countdown-end="${startTime.getTime()}" class="font-bold text-green-700">লোড হচ্ছে...</span>
                 </div>
             `;
 
             if (currentUserRole === 'admin') {
-                postElement.querySelector('.view-players-btn').onclick = () => viewPlayersModal(post.id);
+                const viewPlayersBtn = postElement.querySelector('.view-players-btn');
+                if (post.status === 'prizes_distributed') {
+                    viewPlayersBtn.disabled = true;
+                    viewPlayersBtn.textContent = 'বিতরণ সম্পন্ন';
+                } else {
+                    viewPlayersBtn.onclick = () => viewPlayersModal(post.id);
+                }
                 postElement.querySelector('.edit-post-btn').onclick = () => editPostModal(post.id);
                 postElement.querySelector('.delete-post-btn').onclick = () => deletePost(post.id);
+
+                // Inline edit handlers for pencils
+                postElement.querySelectorAll('[data-edit]').forEach(icon => {
+                    icon.addEventListener('click', async (e) => {
+                        const key = e.currentTarget.getAttribute('data-edit');
+                        const labelMap = {
+                            contestName: 'টুর্নামেন্টের নাম',
+                            startTime: 'শুরুর সময়',
+                            gameName: 'গেমের নাম',
+                            contestType: 'এন্ট্রি টাইপ',
+                            entryFee: 'এন্ট্রি ফি (৳)',
+                            perKill: 'পার কিল (৳)',
+                            map: 'ম্যাপ',
+                            version: 'ভার্সন'
+                        };
+                        let hint = labelMap[key] || key;
+                        let currentVal = '';
+                        if (key === 'startTime') {
+                            const st = post.startTime ? post.startTime.toDate() : new Date(JSON.parse(post.contestDetails).startTime);
+                            currentVal = new Date(st).toISOString().slice(0,16); // yyyy-mm-ddThh:mm
+                        } else {
+                            currentVal = JSON.parse(post.contestDetails)[key] ?? '';
+                        }
+                        const isDate = key === 'startTime';
+                        const newVal = prompt(`${hint} পরিবর্তন করুন${isDate ? ' (YYYY-MM-DDTHH:MM)' : ''}:`, currentVal);
+                        if (newVal === null) return;
+                        try {
+                            await updatePostFieldInline(post.id, key, newVal);
+                            showMessage('আপডেট হয়েছে!', 'success');
+                        } catch (err) {
+                            console.error(err);
+                            showMessage('আপডেট ব্যর্থ হয়েছে', 'error');
+                        }
+                    });
+                });
             }
             if (postElement.querySelector('.join-btn')) {
                 postElement.querySelector('.join-btn').onclick = () => showJoinFormInline(post);
             }
+            const headerJoinBtn = postElement.querySelector('.header-join-btn');
+            if (headerJoinBtn) {
+                headerJoinBtn.addEventListener('click', () => {
+                    showJoinFormInline(post);
+                    const target = document.getElementById(`action-container-${post.id}`);
+                    target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                });
+            }
             if (postElement.querySelector('.submit-proof-btn')) {
                 postElement.querySelector('.submit-proof-btn').onclick = () => openProofModal(post.id);
+            }
+            // Toggle handlers for details sections
+            const roomBtn = postElement.querySelector('.toggle-room');
+            const prizeBtn = postElement.querySelector('.toggle-prize');
+            const roomBox = postElement.querySelector('.room-details');
+            const prizeBox = postElement.querySelector('.prize-details');
+            if (roomBtn && roomBox) {
+                roomBtn.addEventListener('click', () => {
+                    roomBox.classList.toggle('hidden');
+                });
+            }
+            if (prizeBtn && prizeBox) {
+                prizeBtn.addEventListener('click', () => {
+                    prizeBox.classList.toggle('hidden');
+                });
             }
             return postElement;
         };
@@ -636,13 +717,11 @@
             const contestDetails = JSON.parse(post.contestDetails);
             const actionContainer = document.getElementById(`action-container-${post.id}`);
             if (!actionContainer) return;
-            
-            // Hide the main join button
-            const mainJoinBtn = document.querySelector(`#post-${post.id} .join-btn`);
-            if(mainJoinBtn) mainJoinBtn.parentElement.style.display = 'none';
+
+            const originalButtonHTML = actionContainer.innerHTML;
 
             const formHTML = `
-                <div class="space-y-3 bg-slate-50 p-4 rounded-lg border">
+                <div class="space-y-2">
                     <input type="text" id="user-id-input-${post.id}" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="আপনার ${contestDetails.requiredIdType} দিন">
                     <p class="text-xs text-center text-red-600">আপনার ওয়ালেট থেকে ৳${contestDetails.entryFee} কেটে নেওয়া হবে।</p>
                     <div class="flex space-x-2">
@@ -659,8 +738,8 @@
             };
 
             document.getElementById(`cancel-join-btn-${post.id}`).onclick = () => {
-                actionContainer.innerHTML = '';
-                 if(mainJoinBtn) mainJoinBtn.parentElement.style.display = 'block';
+                actionContainer.innerHTML = originalButtonHTML;
+                actionContainer.querySelector('.join-btn').onclick = () => showJoinFormInline(post);
             };
         };
 
@@ -683,7 +762,45 @@
                 
                 showMessage('সফলভাবে যোগদান করেছেন!', 'success');
 
-                // Listener will handle UI update
+                // Instantly update the UI without waiting for Firestore listener
+                const postElement = document.getElementById(`post-${postId}`);
+                if (postElement) {
+                    const contestDetails = JSON.parse(post.contestDetails);
+                    const actionContainer = postElement.querySelector(`#action-container-${postId}`);
+                    
+                    const joinedHTML = `
+                        <div class="mt-4 p-3 rounded-lg bg-blue-50 border border-blue-200 text-sm">
+                            <h4 class="font-bold text-blue-800 mb-2">আপনি জয়েন করেছেন!</h4>
+                            <p class="font-semibold text-blue-800 flex justify-between items-center">রুম আইডি: <code class="bg-blue-200 text-blue-900 px-2 py-1 rounded">${contestDetails.roomId}</code> <i onclick="copyToClipboard('${contestDetails.roomId}')" class="fas fa-copy cursor-pointer text-gray-500 ml-2"></i></p>
+                            <p class="font-semibold text-blue-800 flex justify-between items-center mt-1">পাসওয়ার্ড: <code class="bg-blue-200 text-blue-900 px-2 py-1 rounded">${contestDetails.roomPass}</code> <i onclick="copyToClipboard('${contestDetails.roomPass}')" class="fas fa-copy cursor-pointer text-gray-500 ml-2"></i></p>
+                            <button class="submit-proof-btn mt-3 w-full bg-indigo-600 text-white font-semibold py-2 rounded-lg hover:bg-indigo-700 transition">প্রুফ দিন (ঐচ্ছিক)</button>
+                        </div>
+                    `;
+
+                    if (actionContainer) {
+                        actionContainer.innerHTML = joinedHTML;
+                        const proofBtn = actionContainer.querySelector('.submit-proof-btn');
+                        if (proofBtn) {
+                            proofBtn.onclick = () => openProofModal(postId);
+                        }
+                    }
+
+                    // Also, update the player count
+                    const participantsCountEl = postElement.querySelector('.flex-col.items-end span.text-xs');
+                    if (participantsCountEl) {
+                        const currentCountText = participantsCountEl.textContent.split('/')[0];
+                        const currentCount = parseInt(currentCountText, 10);
+                        if (!isNaN(currentCount)) {
+                           const maxPlayers = contestDetails.maxPlayers;
+                           participantsCountEl.textContent = `${currentCount + 1}/${maxPlayers} জন`;
+                            if (currentCount + 1 >= maxPlayers) {
+                                participantsCountEl.classList.remove('bg-green-100', 'text-green-700');
+                                participantsCountEl.classList.add('bg-red-100', 'text-red-700');
+                            }
+                        }
+                    }
+                }
+
             } catch (error) {
                 showMessage(error.message, 'error');
             } finally {
@@ -840,54 +957,82 @@
                 }
             })
         };
-        
-        const createInplaceEditField = (name, label, value = '', type = 'text', placeholder = '') => {
-            return `
-            <div class="inplace-edit border-b pb-2">
-                <label class="text-xs text-gray-500">${label}</label>
-                <div class="display-view">
-                    <span class="value-display text-gray-800 font-medium">${value || 'N/A'}</span>
-                    <i class="fas fa-pencil-alt edit-icon text-gray-400"></i>
-                </div>
-                <div class="input-view">
-                    ${type === 'select' ?
-                    `<select name="${name}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                        <option value="active" ${value === 'active' ? 'selected' : ''}>Active</option>
-                        <option value="inactive" ${value === 'inactive' ? 'selected' : ''}>Inactive</option>
-                        <option value="complete" ${value === 'complete' ? 'selected' : ''}>Complete</option>
-                     </select>` :
-                     `<input type="${type}" name="${name}" value="${value}" placeholder="${placeholder || label}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">`
-                    }
-                </div>
-            </div>`;
-        }
 
         const openCreatePostModal = () => {
             const formHTML = `
                 <form id="contest-post-form" class="space-y-4">
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="col-span-2">${createInplaceEditField('contestName', 'টুর্নামেন্টের নাম')}</div>
-                        <div class="col-span-2">${createInplaceEditField('gameName', 'গেমের নাম')}</div>
-                        <div class="col-span-2">${createInplaceEditField('gameIconUrl', 'গেম আইকন লিংক', '', 'url')}</div>
-                        <div>${createInplaceEditField('totalPrizePool', 'মোট পুরস্কার (৳)', '', 'number')}</div>
-                        <div>${createInplaceEditField('entryFee', 'এন্ট্রি ফি (৳)', '', 'number')}</div>
-                        <div>${createInplaceEditField('perKillPrize', 'প্রতি কিল (৳)', '', 'number')}</div>
-                        <div>${createInplaceEditField('maxPlayers', 'সর্বোচ্চ প্লেয়ার', '', 'number')}</div>
-                        <div>${createInplaceEditField('mapName', 'ম্যাপ')}</div>
-                        <div>${createInplaceEditField('version', 'ভার্সন')}</div>
-                        <div class="col-span-2">${createInplaceEditField('startTime', 'শুরুর সময়', '', 'datetime-local')}</div>
-                        <div class="col-span-2">${createInplaceEditField('requiredIdType', 'প্রয়োজনীয় আইডি টাইপ')}</div>
-                        <div class="col-span-2">${createInplaceEditField('contestType', 'ধরণ')}</div>
-                        <div>${createInplaceEditField('roomId', 'রুম আইডি')}</div>
-                        <div>${createInplaceEditField('roomPass', 'রুম পাসওয়ার্ড')}</div>
-                        <div class="col-span-2">${createInplaceEditField('status', 'স্ট্যাটাস', 'active', 'select')}</div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="flex flex-col">
+                            <label class="text-xs text-gray-600 mb-1">টুর্নামেন্টের নাম</label>
+                            <input type="text" name="contestName" placeholder="টুর্নামেন্টের নাম" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                        </div>
+                        <div class="flex flex-col">
+                            <label class="text-xs text-gray-600 mb-1">Match No</label>
+                            <input type="number" name="matchNo" placeholder="1" min="1" step="1" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                        </div>
+                        <div class="flex flex-col">
+                            <label class="text-xs text-gray-600 mb-1">গেমের নাম</label>
+                            <input type="text" name="gameName" placeholder="গেমের নাম" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                        </div>
+                        <div class="flex flex-col">
+                            <label class="text-xs text-gray-600 mb-1">গেম আইকন লিংক</label>
+                            <input type="text" name="gameIconUrl" placeholder="https://..." class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                        </div>
+                        <div class="flex flex-col">
+                            <label class="text-xs text-gray-600 mb-1">এন্ট্রি ফি (৳) <span class="text-red-500">*</span></label>
+                            <input type="number" name="entryFee" placeholder="এন্ট্রি ফি (৳)" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                        </div>
+                        <div class="flex flex-col">
+                            <label class="text-xs text-gray-600 mb-1">সর্বোচ্চ প্লেয়ার <span class="text-red-500">*</span></label>
+                            <input type="number" name="maxPlayers" placeholder="সর্বোচ্চ প্লেয়ার" required max="50" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                        </div>
+                        <div class="flex flex-col">
+                            <label class="text-xs text-gray-600 mb-1">পার কিল (৳)</label>
+                            <input type="number" name="perKill" placeholder="যেমন: 5" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                        </div>
+                        <div class="flex flex-col">
+                            <label class="text-xs text-gray-600 mb-1">ম্যাপ</label>
+                            <input type="text" name="map" placeholder="যেমন: Bermuda" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                        </div>
+                        <div class="flex flex-col">
+                            <label class="text-xs text-gray-600 mb-1">ভার্সন</label>
+                            <input type="text" name="version" placeholder="যেমন: MOBILE" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                        </div>
+                        <div class="flex flex-col col-span-2">
+                            <label class="text-xs text-gray-600 mb-1">শুরুর সময় <span class="text-red-500">*</span></label>
+                            <input type="datetime-local" name="startTime" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                        </div>
+                        <div class="flex flex-col">
+                            <label class="text-xs text-gray-600 mb-1">প্রয়োজনীয় আইডি টাইপ <span class="text-red-500">*</span></label>
+                            <input type="text" name="requiredIdType" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="যেমন: Free Fire ID">
+                        </div>
+                        <div class="flex flex-col">
+                            <label class="text-xs text-gray-600 mb-1">ধরণ <span class="text-red-500">*</span></label>
+                            <input type="text" name="contestType" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="যেমন: 1v1, 2v2, Free for All">
+                        </div>
+                        <div class="flex flex-col">
+                            <label class="text-xs text-gray-600 mb-1">রুম আইডি</label>
+                            <input type="text" name="roomId" placeholder="রুম আইডি" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                        </div>
+                        <div class="flex flex-col">
+                            <label class="text-xs text-gray-600 mb-1">রুম পাসওয়ার্ড</label>
+                            <input type="text" name="roomPass" placeholder="রুম পাসওয়ার্ড" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                        </div>
+                        <div class="flex flex-col col-span-2">
+                            <label class="text-xs text-gray-600 mb-1">স্ট্যাটাস <span class="text-red-500">*</span></label>
+                            <select name="status" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                <option value="active">Active</option>
+                                <option value="inactive">Inactive</option>
+                                <option value="complete">Complete</option>
+                            </select>
+                        </div>
                     </div>
                     
-                    <div class="mt-4">
+ <div class="mt-4">
                         <h4 class="text-md font-semibold text-gray-600 mb-2">পুরস্কারের তালিকা</h4>
                         <div id="prize-list-container" class="space-y-2">
                             <div class="flex items-center space-x-2">
-                                <input type="text" name="prize_position_0" placeholder="অবস্থান (e.g., Winner)" class="w-1/2 px-3 py-2 border border-gray-300 rounded-lg text-sm" required>
+                                <input type="text" name="prize_position_0" placeholder="অবস্থান" class="w-1/2 px-3 py-2 border border-gray-300 rounded-lg text-sm" required>
                                 <input type="number" name="prize_amount_0" placeholder="পরিমাণ (৳)" class="w-1/2 px-3 py-2 border border-gray-300 rounded-lg text-sm" required>
                                 <button type="button" class="remove-prize-btn hidden bg-red-500 text-white w-8 h-8 rounded-full flex-shrink-0">&times;</button>
                             </div>
@@ -895,51 +1040,274 @@
                         <button type="button" id="add-prize-btn" class="mt-2 text-sm text-blue-600 hover:underline font-semibold">+ আরও পুরস্কার যোগ করুন</button>
                     </div>
                     <button type="submit" class="w-full bg-orange-600 text-white font-semibold py-2 rounded-lg hover:bg-orange-700 transition">পোস্ট করুন</button>
+                    
+                    <div class="flex items-center space-x-2 mt-2">
+                        <button type="button" id="save-draft-btn" class="w-full bg-gray-500 text-white font-semibold py-2 rounded-lg hover:bg-gray-600 transition">ড্রাফট সেভ করুন</button>
+                        <button type="button" id="load-draft-btn" class="w-full bg-blue-500 text-white font-semibold py-2 rounded-lg hover:bg-blue-600 transition">ড্রাফট লোড করুন</button>
+                    </div>
+
+                    <div class="mt-6">
+                        <h4 class="text-md font-bold text-gray-800 mb-2">Live Preview</h4>
+                        <div id="live-preview-card" class="space-y-2"></div>
+                    </div>
                 </form>
             `;
             renderModal('createPostModal', 'নতুন টুর্নামেন্ট তৈরি করুন', formHTML);
             document.getElementById('contest-post-form').onsubmit = handleContestPost;
             document.getElementById('add-prize-btn').onclick = () => addPrizeField('', '', '#createPostModal');
-            
-            // Activate inplace editing
-            document.querySelectorAll('#createPostModal .inplace-edit').forEach(el => {
-                const display = el.querySelector('.display-view');
-                const input = el.querySelector('.input-view');
-                const displayValue = el.querySelector('.value-display');
-                const inputEl = el.querySelector('input, select');
-                
-                display.addEventListener('click', () => {
-                    display.style.display = 'none';
-                    input.style.display = 'block';
-                    inputEl.focus();
-                });
+            document.getElementById('save-draft-btn').onclick = () => handleSaveDraft('#createPostModal');
+            document.getElementById('load-draft-btn').onclick = () => handleLoadDraft('#createPostModal');
+            setupPreviewListeners('#createPostModal');
+            renderPreviewFromForm('#createPostModal');
+        };
 
-                inputEl.addEventListener('blur', () => {
-                    display.style.display = 'flex';
-                    input.style.display = 'none';
-                    let newValue = inputEl.value;
-                    if (inputEl.type === 'datetime-local' && newValue) {
-                         const date = new Date(newValue);
-                         newValue = date.toLocaleString('bn-BD');
-                    }
-                    displayValue.textContent = newValue || 'N/A';
+        // Build a lightweight preview card using current form values
+        const renderPreviewFromForm = (modalSelector) => {
+            const form = document.querySelector(`${modalSelector} form`);
+            if (!form) return;
+            const get = (name, def='') => (form.elements[name]?.value || def);
+            const start = get('startTime');
+            const dateText = start ? new Date(start).toLocaleString('en-US', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }).replace(',', ' at') : '';
+            // compute total prize
+            const prizeContainer = form.querySelector('#prize-list-container');
+            let totalPrize = 0;
+            if (prizeContainer) {
+                prizeContainer.querySelectorAll('div').forEach(row => {
+                    const amt = parseFloat(row.querySelector('input[name^="prize_amount_"]')?.value || '0');
+                    if (!isNaN(amt)) totalPrize += amt;
                 });
+            }
+            const perKill = get('perKill');
+            const perKillText = perKill ? `৳${perKill}` : '—';
+            const maxPlayers = parseInt(get('maxPlayers','0'), 10) || 0;
+            const preview = document.querySelector(`${modalSelector} #live-preview-card`);
+            if (!preview) return;
+            preview.innerHTML = `
+                <div class="bg-white p-4 rounded-xl shadow-md border border-slate-200">
+                    <div class="flex items-start justify-between w-full">
+                        <div class="min-w-0">
+                            <p class="text-base font-bold text-gray-900">${get('contestName','Tournament')}</p>
+                            <p class="text-xs text-gray-500 mt-0.5">${dateText}</p>
+                            <span class="text-sm font-medium text-gray-500">${get('gameName','')}</span>
+                        </div>
+                        <div class="flex flex-col items-end gap-2">
+                            <span class="text-[10px] font-bold bg-orange-100 text-orange-700 px-2 py-1 rounded-full">#PREV</span>
+                            <span class="text-xs font-semibold px-2 py-1 rounded-full bg-green-100 text-green-700">0/${maxPlayers} জন</span>
+                        </div>
+                    </div>
+                    <div class="mt-3 grid grid-cols-3 gap-3 text-[12px] text-gray-700 w-full">
+                        <div class="bg-slate-50 rounded-lg p-2 border">
+                            <p class="text-[10px] text-gray-500">WIN PRIZE</p>
+                            <p class="font-semibold">৳${totalPrize.toFixed(0)}</p>
+                        </div>
+                        <div class="bg-slate-50 rounded-lg p-2 border">
+                            <p class="text-[10px] text-gray-500">ENTRY TYPE</p>
+                            <p class="font-semibold">${get('contestType','')}</p>
+                        </div>
+                        <div class="bg-slate-50 rounded-lg p-2 border">
+                            <p class="text-[10px] text-gray-500">ENTRY FEE</p>
+                            <p class="font-semibold">৳${get('entryFee','0')}</p>
+                        </div>
+                        <div class="bg-slate-50 rounded-lg p-2 border">
+                            <p class="text-[10px] text-gray-500">PER KILL</p>
+                            <p class="font-semibold">${perKillText}</p>
+                        </div>
+                        <div class="bg-slate-50 rounded-lg p-2 border">
+                            <p class="text-[10px] text-gray-500">MAP</p>
+                            <p class="font-semibold">${get('map','')}</p>
+                        </div>
+                        <div class="bg-slate-50 rounded-lg p-2 border">
+                            <p class="text-[10px] text-gray-500">VERSION</p>
+                            <p class="font-semibold">${get('version','MOBILE')}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        };
+
+        const setupPreviewListeners = (modalSelector) => {
+            const form = document.querySelector(`${modalSelector} form`);
+            if (!form) return;
+            form.querySelectorAll('input, select, textarea').forEach(el => {
+                el.addEventListener('input', () => renderPreviewFromForm(modalSelector));
+                el.addEventListener('change', () => renderPreviewFromForm(modalSelector));
             });
         };
 
-        const addPrizeField = (position = '', amount = '', modalSelector) => {
-            const container = document.querySelector(`${modalSelector} #prize-list-container`);
-            if (!container) return;
-            const index = container.children.length;
-            const prizeField = document.createElement('div');
-            prizeField.className = 'flex items-center space-x-2';
-            prizeField.innerHTML = `
-                <input type="text" name="prize_position_${index}" placeholder="অবস্থান" class="w-1/2 px-3 py-2 border border-gray-300 rounded-lg text-sm" value="${position}" required>
-                <input type="number" name="prize_amount_${index}" placeholder="পরিমাণ (৳)" class="w-1/2 px-3 py-2 border border-gray-300 rounded-lg text-sm" value="${amount}" required>
-                <button type="button" class="remove-prize-btn ${index === 0 ? 'hidden' : ''} bg-red-500 text-white w-8 h-8 rounded-full flex-shrink-0">&times;</button>
-            `;
-            prizeField.querySelector('.remove-prize-btn').onclick = () => prizeField.remove();
-            container.appendChild(prizeField);
+        // Inline update helper used by pencil icons
+        const updatePostFieldInline = async (postId, key, rawVal) => {
+            const postRef = doc(db, 'artifacts', appId, 'public', 'data', 'posts', postId);
+            const snap = await getDoc(postRef);
+            if (!snap.exists()) throw new Error('পোস্ট পাওয়া যায়নি');
+            const data = snap.data();
+            const details = JSON.parse(data.contestDetails || '{}');
+            let updates = {};
+            if (key === 'startTime') {
+                const dt = new Date(rawVal);
+                updates.startTime = dt;
+                details.startTime = rawVal;
+            } else {
+                // cast numbers where needed
+                const numKeys = ['entryFee','perKill','maxPlayers'];
+                let val = rawVal;
+                if (numKeys.includes(key)) {
+                    const n = parseFloat(rawVal);
+                    val = isNaN(n) ? 0 : n;
+                }
+                details[key] = val;
+            }
+            updates.contestDetails = JSON.stringify(details);
+            await updateDoc(postRef, updates);
+        };
+
+        
+        
+        const handleSaveDraft = async (modalSelector) => {
+            const form = document.querySelector(`${modalSelector} form`);
+            if (!form) return;
+            const formData = new FormData(form);
+            const draftData = {};
+            const prizes = [];
+
+            for (let [key, value] of formData.entries()) {
+                if (key.startsWith('prize_position_')) {
+                    const index = key.split('_')[2];
+                    const amount = formData.get(`prize_amount_${index}`);
+                    prizes.push({ position: value, amount: amount });
+                } else {
+                    draftData[key] = value;
+                }
+            }
+            draftData.prizes = prizes;
+
+            try {
+                const nameDefault = draftData.contestName ? `${draftData.contestName}` : 'Untitled Draft';
+                const draftName = prompt('ড্রাফটের নাম দিন:', nameDefault) || nameDefault;
+                if (!currentUser) throw new Error('প্রথমে লগইন করুন।');
+                const draftsCol = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'tournamentDrafts');
+                await addDoc(draftsCol, {
+                    name: draftName,
+                    data: draftData,
+                    createdAt: serverTimestamp(),
+                    updatedAt: serverTimestamp()
+                });
+                showMessage('ড্রাফট Firebase-এ সেভ হয়েছে!', 'success');
+            } catch (e) {
+                console.error(e);
+                showMessage(e.message || 'ড্রাফট সেভ করতে ব্যর্থ।', 'error');
+            }
+        };
+
+        const handleLoadDraft = async (modalSelector) => {
+            try {
+                if (!currentUser) throw new Error('প্রথমে লগইন করুন।');
+                const draftsCol = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'tournamentDrafts');
+                const draftsQuery = query(draftsCol, orderBy('updatedAt', 'desc'));
+                const snap = await getDocs(draftsQuery);
+
+                let listHTML = '';
+                if (snap.empty) {
+                    listHTML = '<p class="text-center text-gray-500">কোনো ড্রাফট নেই।</p>';
+                } else {
+                    listHTML = '<div class="space-y-3">';
+                    snap.forEach(docSnap => {
+                        const d = docSnap.data();
+                        const draftId = docSnap.id;
+                        const title = d.name || 'Untitled Draft';
+                        listHTML += `
+                            <div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg border">
+                                <div>
+                                    <p class="font-semibold">${title}</p>
+                                    <p class="text-xs text-gray-500">${d.data?.contestName || ''} · ${d.data?.gameName || ''}</p>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <button class="load-draft-btn bg-blue-600 text-white px-3 py-1 rounded text-sm" data-id="${draftId}">লোড</button>
+                                    <button class="delete-draft-btn bg-red-600 text-white px-3 py-1 rounded text-sm" data-id="${draftId}">ডিলিট</button>
+                                </div>
+                            </div>`;
+                    });
+                    listHTML += '</div>';
+                }
+
+                const content = `
+                    <div class="space-y-3">
+                        ${listHTML}
+                    </div>
+                `;
+                renderModal('draftsModal', 'ড্রাফটসমূহ', content, () => {});
+
+                // Wire up actions
+                document.querySelectorAll('#draftsModal .load-draft-btn').forEach(btn => {
+                    btn.addEventListener('click', async (e) => {
+                        const id = e.currentTarget.getAttribute('data-id');
+                        const draftRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'tournamentDrafts', id);
+                        const draftDoc = await getDoc(draftRef);
+                        if (!draftDoc.exists()) return showMessage('ড্রাফট পাওয়া যায়নি!', 'error');
+                        const draft = draftDoc.data();
+
+                        // Ensure target form modal exists (drafts modal replaced the container)
+                        const data = draft.data || {};
+                        // Close drafts list first (renderModal clears container after 300ms)
+                        document.querySelector('#draftsModal .close-button')?.click();
+                        // Wait until the drafts modal cleanup has finished
+                        await new Promise(r => setTimeout(r, 550));
+
+                        // Reopen the target modal unconditionally to avoid race with cleanup
+                        let form;
+                        if (modalSelector === '#createPostModal') {
+                            openCreatePostModal();
+                            await new Promise(r => setTimeout(r, 0));
+                            form = document.querySelector(`${modalSelector} form`);
+                            const modalEl = document.getElementById('createPostModal');
+                            if (modalEl && !modalEl.classList.contains('show')) modalEl.classList.add('show');
+                        } else {
+                            form = document.querySelector(`${modalSelector} form`);
+                        }
+                        if (!form) return; // safety
+
+                        // Populate form fields from draft
+                        for (const key in data) {
+                            if (key !== 'prizes' && form.elements[key]) {
+                                form.elements[key].value = data[key];
+                            }
+                        }
+                        const prizeContainer = form.querySelector('#prize-list-container');
+                        if (prizeContainer) {
+                            prizeContainer.innerHTML = '';
+                            if (Array.isArray(data.prizes) && data.prizes.length > 0) {
+                                data.prizes.forEach(pr => addPrizeField(pr.position, pr.amount, modalSelector));
+                            } else {
+                                addPrizeField('', '', modalSelector);
+                            }
+                        }
+                        showMessage('ড্রাফট লোড হয়েছে।', 'success');
+                        // Focus first field to make it clear the form is active
+                        const firstInput = form.querySelector('input, select, textarea');
+                        firstInput?.focus();
+                    });
+                });
+
+                document.querySelectorAll('#draftsModal .delete-draft-btn').forEach(btn => {
+                    btn.addEventListener('click', async (e) => {
+                        const id = e.currentTarget.getAttribute('data-id');
+                        if (!confirm('ড্রাফট ডিলিট করবেন?')) return;
+                        try {
+                            const draftRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'tournamentDrafts', id);
+                            await deleteDoc(draftRef);
+                            showMessage('ড্রাফট ডিলিট হয়েছে।', 'success');
+                            document.querySelector('#draftsModal .close-button')?.click();
+                            // Re-open to refresh list
+                            handleLoadDraft(modalSelector);
+                        } catch (err) {
+                            showMessage(err.message || 'ড্রাফট ডিলিট ব্যর্থ।', 'error');
+                        }
+                    });
+                });
+
+            } catch (e) {
+                console.error(e);
+                showMessage(e.message || 'ড্রাফট লোড করতে সমস্যা হয়েছে।', 'error');
+            }
         };
         
         const handleContestPost = async (e) => {
@@ -949,6 +1317,7 @@
             const prizes = [];
             let postStatus = 'active';
             let startTime = '';
+            let matchNo = undefined;
 
             for (let [key, value] of formData.entries()) {
                  if(key.startsWith('prize_position_')) {
@@ -960,20 +1329,26 @@
                 } else if (key === 'startTime') {
                     startTime = value;
                     contestDetails[key] = value;
+                } else if (key === 'matchNo') {
+                    matchNo = value ? parseInt(value, 10) : undefined;
                 }
                  else {
                     contestDetails[key] = value;
                 }
             }
             contestDetails.prizes = prizes;
-            
+
+            // All fields are plain text inputs now (except status & start time),
+            // so no custom override handling is required.
+
             loadingEl.classList.remove('hidden');
             try {
                 await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'posts'), {
                     timestamp: serverTimestamp(),
                     contestDetails: JSON.stringify(contestDetails),
                     status: postStatus, 
-                    startTime: new Date(startTime)
+                    startTime: new Date(startTime),
+                    ...(typeof matchNo === 'number' && !isNaN(matchNo) ? { matchNo } : {})
                 });
                 showMessage("টুর্নামেন্ট সফলভাবে পোস্ট করা হয়েছে!", 'success');
                 document.getElementById('createPostModal').querySelector('.close-button').click();
@@ -1240,72 +1615,82 @@
             const postData = postDoc.data();
             const contestDetails = JSON.parse(postData.contestDetails);
             
+            let prizeFieldsHTML = '';
+            (contestDetails.prizes || []).forEach((prize, index) => {
+                prizeFieldsHTML += `
+                    <div class="flex items-center space-x-2">
+                        <input type="text" name="prize_position_${index}" value="${prize.position}" class="w-1/2 px-3 py-2 border border-gray-300 rounded-lg text-sm" required>
+                        <input type="number" name="prize_amount_${index}" value="${prize.amount}" class="w-1/2 px-3 py-2 border border-gray-300 rounded-lg text-sm" required>
+                        <button type="button" class="remove-prize-btn ${index === 0 ? 'hidden' : ''} bg-red-500 text-white w-8 h-8 rounded-full flex-shrink-0">&times;</button>
+                    </div>`;
+            });
+            
             const startTimeForInput = postData.startTime ? new Date(postData.startTime.toDate().getTime() - (new Date().getTimezoneOffset() * 60000)).toISOString().slice(0, -8) : contestDetails.startTime;
 
-             const formHTML = `
+            const modalContent = `
                 <form id="edit-post-form" class="space-y-4">
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="col-span-2">${createInplaceEditField('contestName', 'টুর্নামেন্টের নাম', contestDetails.contestName)}</div>
-                        <div class="col-span-2">${createInplaceEditField('gameName', 'গেমের নাম', contestDetails.gameName)}</div>
-                        <div class="col-span-2">${createInplaceEditField('gameIconUrl', 'গেম আইকন লিংক', contestDetails.gameIconUrl, 'url')}</div>
-                        <div>${createInplaceEditField('totalPrizePool', 'মোট পুরস্কার (৳)', contestDetails.totalPrizePool, 'number')}</div>
-                        <div>${createInplaceEditField('entryFee', 'এন্ট্রি ফি (৳)', contestDetails.entryFee, 'number')}</div>
-                        <div>${createInplaceEditField('perKillPrize', 'প্রতি কিল (৳)', contestDetails.perKillPrize, 'number')}</div>
-                        <div>${createInplaceEditField('maxPlayers', 'সর্বোচ্চ প্লেয়ার', contestDetails.maxPlayers, 'number')}</div>
-                        <div>${createInplaceEditField('mapName', 'ম্যাপ', contestDetails.mapName)}</div>
-                        <div>${createInplaceEditField('version', 'ভার্সন', contestDetails.version)}</div>
-                        <div class="col-span-2">${createInplaceEditField('startTime', 'শুরুর সময়', startTimeForInput, 'datetime-local')}</div>
-                        <div class="col-span-2">${createInplaceEditField('requiredIdType', 'প্রয়োজনীয় আইডি টাইপ', contestDetails.requiredIdType)}</div>
-                        <div class="col-span-2">${createInplaceEditField('contestType', 'ধরণ', contestDetails.contestType)}</div>
-                        <div>${createInplaceEditField('roomId', 'রুম আইডি', contestDetails.roomId)}</div>
-                        <div>${createInplaceEditField('roomPass', 'রুম পাসওয়ার্ড', contestDetails.roomPass)}</div>
-                        <div class="col-span-2">${createInplaceEditField('status', 'স্ট্যাটাস', postData.status, 'select')}</div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="flex flex-col">
+                            <label class="text-xs text-gray-600 mb-1">টুর্নামেন্টের নাম <span class="text-red-500">*</span></label>
+                            <input type="text" name="contestName" value="${contestDetails.contestName}" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                        </div>
+                        <div class="flex flex-col">
+                            <label class="text-xs text-gray-600 mb-1">গেমের নাম <span class="text-red-500">*</span></label>
+                            <input type="text" name="gameName" value="${contestDetails.gameName}" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                        </div>
+                        <div class="flex flex-col">
+                            <label class="text-xs text-gray-600 mb-1">গেম আইকন লিংক</label>
+                            <input type="url" name="gameIconUrl" value="${contestDetails.gameIconUrl || ''}" placeholder="https://..." class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" pattern="https?://.*">
+                        </div>
+                        <div class="flex flex-col">
+                            <label class="text-xs text-gray-600 mb-1">এন্ট্রি ফি (৳) <span class="text-red-500">*</span></label>
+                            <input type="number" name="entryFee" value="${contestDetails.entryFee}" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                        </div>
+                        <div class="flex flex-col">
+                            <label class="text-xs text-gray-600 mb-1">সর্বোচ্চ প্লেয়ার <span class="text-red-500">*</span></label>
+                            <input type="number" name="maxPlayers" value="${contestDetails.maxPlayers}" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                        </div>
+                        <div class="flex flex-col col-span-2">
+                            <label class="text-xs text-gray-600 mb-1">শুরুর সময় <span class="text-red-500">*</span></label>
+                            <input type="datetime-local" name="startTime" value="${startTimeForInput}" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                        </div>
+                        <div class="flex flex-col">
+                            <label class="text-xs text-gray-600 mb-1">প্রয়োজনীয় আইডি টাইপ <span class="text-red-500">*</span></label>
+                            <input type="text" name="requiredIdType" value="${contestDetails.requiredIdType || ''}" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="যেমন: Free Fire ID">
+                        </div>
+                        <div class="flex flex-col">
+                            <label class="text-xs text-gray-600 mb-1">ধরণ <span class="text-red-500">*</span></label>
+                            <input type="text" name="contestType" value="${contestDetails.contestType || ''}" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="যেমন: 1v1, 2v2, Free for All">
+                        </div>
+                        <div class="flex flex-col">
+                            <label class="text-xs text-gray-600 mb-1">রুম আইডি <span class="text-red-500">*</span></label>
+                            <input type="text" name="roomId" value="${contestDetails.roomId}" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                        </div>
+                        <div class="flex flex-col">
+                            <label class="text-xs text-gray-600 mb-1">রুম পাসওয়ার্ড <span class="text-red-500">*</span></label>
+                            <input type="text" name="roomPass" value="${contestDetails.roomPass}" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                        </div>
+                        <div class="flex flex-col col-span-2">
+                            <label class="text-xs text-gray-600 mb-1">স্ট্যাটাস <span class="text-red-500">*</span></label>
+                            <select name="status" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                <option value="active" ${postData.status === 'active' ? 'selected' : ''}>Active</option>
+                                <option value="inactive" ${postData.status === 'inactive' ? 'selected' : ''}>Inactive</option>
+                                <option value="complete" ${postData.status === 'complete' ? 'selected' : ''}>Complete</option>
+                            </select>
+                        </div>
                     </div>
-                    
-                    <div class="mt-4">
+                     <div class="mt-4">
                         <h4 class="text-md font-semibold text-gray-600 mb-2">পুরস্কারের তালিকা</h4>
-                        <div id="prize-list-container" class="space-y-2"></div>
+                        <div id="prize-list-container" class="space-y-2">${prizeFieldsHTML}</div>
                         <button type="button" id="add-prize-btn" class="mt-2 text-sm text-blue-600 hover:underline font-semibold">+ আরও পুরস্কার যোগ করুন</button>
                     </div>
                     <button type="submit" class="w-full bg-yellow-600 text-white font-semibold py-2 rounded-lg hover:bg-yellow-700 transition mt-4">আপডেট করুন</button>
                 </form>
             `;
-            renderModal('editPostModal', 'টুর্নামেন্ট এডিট করুন', formHTML);
-
-            // Populate prize list
-            if (contestDetails.prizes && contestDetails.prizes.length > 0) {
-                 contestDetails.prizes.forEach(prize => addPrizeField(prize.position, prize.amount, '#editPostModal'));
-            } else {
-                 addPrizeField('', '', '#editPostModal'); // Add one empty field
-            }
-
+            renderModal('editPostModal', 'টুর্নামেন্ট এডিট করুন', modalContent);
             document.getElementById('edit-post-form').onsubmit = (e) => handleUpdatePost(e, postId);
             document.getElementById('add-prize-btn').onclick = () => addPrizeField('', '', '#editPostModal');
-            
-             // Activate inplace editing
-            document.querySelectorAll('#editPostModal .inplace-edit').forEach(el => {
-                const display = el.querySelector('.display-view');
-                const input = el.querySelector('.input-view');
-                const displayValue = el.querySelector('.value-display');
-                const inputEl = el.querySelector('input, select');
-                
-                display.addEventListener('click', () => {
-                    display.style.display = 'none';
-                    input.style.display = 'block';
-                    inputEl.focus();
-                });
-
-                inputEl.addEventListener('blur', () => {
-                    display.style.display = 'flex';
-                    input.style.display = 'none';
-                    let newValue = inputEl.value;
-                    if (inputEl.type === 'datetime-local' && newValue) {
-                         const date = new Date(newValue);
-                         newValue = date.toLocaleString('bn-BD');
-                    }
-                    displayValue.textContent = newValue || 'N/A';
-                });
-            });
+            document.querySelectorAll('#editPostModal #prize-list-container .remove-prize-btn').forEach(btn => btn.onclick = (e) => e.target.parentElement.remove());
         };
 
         const handleUpdatePost = async (e, postId) => {
@@ -1332,6 +1717,14 @@
                 }
             }
             updatedDetails.prizes = prizes;
+
+            // If custom text fields provided, override the dropdown values
+            if ((formData.get('requiredIdTypeCustom') || '').trim()) {
+                updatedDetails.requiredIdType = (formData.get('requiredIdTypeCustom') || '').trim();
+            }
+            if ((formData.get('contestTypeCustom') || '').trim()) {
+                updatedDetails.contestType = (formData.get('contestTypeCustom') || '').trim();
+            }
 
             loadingEl.classList.remove('hidden');
             try {
