@@ -46,6 +46,22 @@
             color: white;
             font-weight: 600;
         }
+        /* Compact view styles for tournament cards */
+        #posts-container.compact .post-card { padding: 0.75rem !important; }
+        #posts-container.compact .post-card .mt-4 { margin-top: 0.5rem !important; }
+        #posts-container.compact .post-card .grid { gap: 0.25rem 0.25rem !important; }
+        #posts-container.compact .post-card .text-lg { font-size: 1rem !important; }
+        #posts-container.compact .post-card .text-base { font-size: 0.95rem !important; }
+        #posts-container.compact .post-card .py-2 { padding-top: 0.25rem !important; padding-bottom: 0.25rem !important; }
+        #posts-container.compact .post-card .px-6 { padding-left: 0.75rem !important; padding-right: 0.75rem !important; }
+        #posts-container.compact .post-card .h-12 { height: 2rem !important; width: 2rem !important; }
+        #posts-container.compact .post-card .space-y-4 > :not([hidden]) ~ :not([hidden]) { --tw-space-y-reverse: 0; margin-top: 0.5rem !important; }
+        #posts-container.compact .post-card .rounded-xl { border-radius: 0.5rem !important; }
+        #posts-container.compact .post-card .p-4 { padding: 0.75rem !important; }
+        #posts-container.compact .post-card .p-3 { padding: 0.5rem !important; }
+        #posts-container.compact .post-card .gap-4 { gap: 0.5rem !important; }
+        /* Reduce spacing between cards in compact mode (override Tailwind's space-y-4) */
+        #posts-container.compact > .post-card { margin-top: 0.5rem !important; }
     </style>
 </head>
 
@@ -87,6 +103,7 @@
                 <div id="admin-post-section" class="hidden mb-6 p-4 rounded-xl shadow-sm bg-white"></div>
                 <div class="flex items-center justify-between mb-4">
                     <h2 class="text-xl font-bold text-gray-800">চলমান টুর্নামেন্ট</h2>
+                    <button id="toggle-density-btn" class="text-xs px-3 py-1.5 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700">Compact</button>
                 </div>
                 <div id="posts-container" class="space-y-4"></div>
             </main>
@@ -165,6 +182,29 @@
         const postsContainerEl = document.getElementById('posts-container');
         const adminPostSectionEl = document.getElementById('admin-post-section');
         const modalContainerEl = document.getElementById('modal-container');
+        // Density toggle elements
+        const densityToggleBtn = document.getElementById('toggle-density-btn');
+        const applyDensity = (mode) => {
+            if (!postsContainerEl || !densityToggleBtn) return;
+            if (mode === 'compact') {
+                postsContainerEl.classList.add('compact');
+                densityToggleBtn.textContent = 'Comfortable';
+            } else {
+                postsContainerEl.classList.remove('compact');
+                densityToggleBtn.textContent = 'Compact';
+            }
+        };
+        // Initialize density from localStorage
+        const savedDensity = localStorage.getItem('postsDensity') || 'comfortable';
+        applyDensity(savedDensity);
+        if (densityToggleBtn) {
+            densityToggleBtn.addEventListener('click', () => {
+                const current = postsContainerEl.classList.contains('compact') ? 'compact' : 'comfortable';
+                const next = current === 'compact' ? 'comfortable' : 'compact';
+                localStorage.setItem('postsDensity', next);
+                applyDensity(next);
+            });
+        }
         // Wallet slider elements
         const walletSlider = document.getElementById('wallet-slider');
         const openWalletSliderBtn = document.getElementById('open-wallet-slider');
@@ -457,7 +497,7 @@
             if (post.status === 'inactive') statusColorClass = 'border-gray-400';
             if (post.status === 'complete') statusColorClass = 'border-green-500';
 
-            postElement.className = `bg-white p-4 rounded-xl shadow-md border border-slate-200 ${statusColorClass.replace('border-', 'border-l-4 border-')}`;
+            postElement.className = `post-card bg-white p-4 rounded-xl shadow-md border border-slate-200 ${statusColorClass.replace('border-', 'border-l-4 border-')}`;
 
             let totalPrizeDisplay = (contestDetails.winPrize ?? '').toString().trim();
             if (!totalPrizeDisplay) {
@@ -610,8 +650,20 @@
                     <div class="room-details hidden mt-2 text-sm bg-slate-50 border rounded-lg p-3">
                         ${hasJoined ? `
                         <div class="space-y-2">
-                            <div class="flex justify-between"><span class="text-gray-600">Room ID</span><code class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded">${contestDetails.roomId || '—'}</code></div>
-                            <div class="flex justify-between"><span class="text-gray-600">Password</span><code class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded">${contestDetails.roomPass || '—'}</code></div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-600">Room ID</span>
+                                <div class="flex items-center">
+                                    <code class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded">${contestDetails.roomId || '—'}</code>
+                                    <i onclick="copyToClipboard('${contestDetails.roomId || ''}')" class="fas fa-copy cursor-pointer text-gray-500 ml-2" title="Copy Room ID"></i>
+                                </div>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-600">Password</span>
+                                <div class="flex items-center">
+                                    <code class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded">${contestDetails.roomPass || '—'}</code>
+                                    <i onclick="copyToClipboard('${contestDetails.roomPass || ''}')" class="fas fa-copy cursor-pointer text-gray-500 ml-2" title="Copy Password"></i>
+                                </div>
+                            </div>
                             <button class="submit-proof-btn mt-2 w-full bg-indigo-600 text-white font-semibold py-2 rounded-lg hover:bg-indigo-700 transition">প্রুফ দিন (ঐচ্ছিক)</button>
                         </div>
                         ` : `<div class="text-center text-sm text-gray-600">আপনি এখনো জয়েন করেননি</div>`}
@@ -804,8 +856,20 @@
                     if (roomDetailsDiv) {
                         roomDetailsDiv.innerHTML = `
                             <div class="space-y-2">
-                                <div class="flex justify-between"><span class="text-gray-600">Room ID</span><code class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded">${contestDetails.roomId || '—'}</code></div>
-                                <div class="flex justify-between"><span class="text-gray-600">Password</span><code class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded">${contestDetails.roomPass || '—'}</code></div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-gray-600">Room ID</span>
+                                    <div class="flex items-center">
+                                        <code class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded">${contestDetails.roomId || '—'}</code>
+                                        <i onclick="copyToClipboard('${contestDetails.roomId || ''}')" class="fas fa-copy cursor-pointer text-gray-500 ml-2" title="Copy Room ID"></i>
+                                    </div>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-gray-600">Password</span>
+                                    <div class="flex items-center">
+                                        <code class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded">${contestDetails.roomPass || '—'}</code>
+                                        <i onclick="copyToClipboard('${contestDetails.roomPass || ''}')" class="fas fa-copy cursor-pointer text-gray-500 ml-2" title="Copy Password"></i>
+                                    </div>
+                                </div>
                                 <button class="submit-proof-btn mt-2 w-full bg-indigo-600 text-white font-semibold py-2 rounded-lg hover:bg-indigo-700 transition">প্রুফ দিন (ঐচ্ছিক)</button>
                             </div>
                         `;
