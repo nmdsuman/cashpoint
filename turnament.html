@@ -702,31 +702,68 @@
 
         const showJoinFormInline = (post) => {
             const contestDetails = JSON.parse(post.contestDetails);
-            const actionContainer = document.getElementById(`action-container-${post.id}`);
-            if (!actionContainer) return;
+            // Find the current post card and the join button
+            const postElement = document.getElementById(`post-${post.id}`);
+            if (!postElement) return;
 
-            const originalButtonHTML = actionContainer.innerHTML;
+            // Prevent re-initializing if already in confirm mode
+            if (postElement.dataset.confirmMode === 'true') return;
 
-            const formHTML = `
-                <div class="space-y-2 mt-3 p-3 bg-slate-50 border rounded-lg">
-                    <input type="text" id="user-id-input-${post.id}" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="আপনার ${contestDetails.requiredIdType} দিন">
-                    <p class="text-xs text-center text-red-600">আপনার ওয়ালেট থেকে ৳${contestDetails.entryFee} কেটে নেওয়া হবে।</p>
-                    <div class="flex space-x-2">
-                        <button id="confirm-join-btn-${post.id}" class="w-full bg-green-600 text-white font-semibold py-2 rounded-lg hover:bg-green-700 transition">নিশ্চিত করুন</button>
-                        <button id="cancel-join-btn-${post.id}" class="w-full bg-gray-500 text-white font-semibold py-2 rounded-lg hover:bg-gray-600 transition">বাতিল</button>
-                    </div>
-                </div>
+            const joinBtn = postElement.querySelector('.progress-join-btn');
+            if (!joinBtn) return;
+
+            // The progress row that contains the progress bar and the join button
+            const progressRow = joinBtn.closest('.flex.items-center.gap-4');
+            if (!progressRow) return;
+
+            // Insert a compact form block ABOVE the progress row
+            const formBlock = document.createElement('div');
+            formBlock.id = `join-form-${post.id}`;
+            formBlock.className = 'mb-2 p-3 rounded-lg bg-white border border-gray-200 space-y-2';
+            formBlock.innerHTML = `
+                <input type="text" id="user-id-input-${post.id}" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="আপনার ${contestDetails.requiredIdType} দিন">
+                <p class="text-xs text-center text-red-600">আপনার ওয়ালেট থেকে ৳${contestDetails.entryFee} কেটে নেওয়া হবে।</p>
             `;
-            actionContainer.innerHTML = formHTML;
+            progressRow.parentElement.insertBefore(formBlock, progressRow);
 
-            document.getElementById(`confirm-join-btn-${post.id}`).onclick = () => {
+            // Change Join button to Confirm (green) and add small cancel X icon next to it
+            // Keep original classes/text to restore on cancel
+            const originalBtnText = joinBtn.textContent;
+            const originalBtnClass = joinBtn.className;
+
+            joinBtn.textContent = 'Confirm';
+            joinBtn.className = 'progress-join-btn px-6 py-2 text-sm font-semibold bg-green-600 hover:bg-green-700 text-white rounded-lg transition';
+
+            // Add a small cancel icon button just to the right of confirm
+            let cancelBtn = document.createElement('button');
+            cancelBtn.id = `cancel-join-icon-${post.id}`;
+            cancelBtn.className = 'ml-2 w-9 h-9 flex items-center justify-center rounded-md border border-gray-300 text-gray-600 hover:bg-gray-100';
+            cancelBtn.setAttribute('aria-label', 'Cancel');
+            cancelBtn.innerHTML = '<i class="fas fa-times"></i>';
+            joinBtn.parentElement.appendChild(cancelBtn);
+
+            postElement.dataset.confirmMode = 'true';
+
+            // Confirm click handler (now the former Join button)
+            const confirmHandler = () => {
                 const idValue = document.getElementById(`user-id-input-${post.id}`).value;
                 handleJoinContest(post, idValue);
             };
+            joinBtn.addEventListener('click', confirmHandler, { once: true });
 
-            document.getElementById(`cancel-join-btn-${post.id}`).onclick = () => {
-                actionContainer.innerHTML = originalButtonHTML;
+            // Cancel handler restores UI
+            const cancelHandler = () => {
+                // Remove form
+                formBlock.remove();
+                // Restore button
+                joinBtn.textContent = originalBtnText;
+                joinBtn.className = originalBtnClass;
+                // Remove cancel icon
+                cancelBtn.remove();
+                // Clear state
+                delete postElement.dataset.confirmMode;
             };
+            cancelBtn.addEventListener('click', cancelHandler, { once: true });
         };
 
         const handleJoinContest = async (post, idValue) => {
@@ -752,6 +789,13 @@
                     if(joinButtonContainer) {
                         joinButtonContainer.innerHTML = `<button class="px-6 py-2 text-sm font-semibold bg-gray-400 text-white rounded-lg cursor-not-allowed" disabled>Joined</button>`;
                     }
+
+                    // Clean up inline confirm UI if present
+                    const formBlock = postElement.querySelector(`#join-form-${postId}`);
+                    if (formBlock) formBlock.remove();
+                    const cancelIcon = postElement.querySelector(`#cancel-join-icon-${postId}`);
+                    if (cancelIcon) cancelIcon.remove();
+                    if (postElement.dataset.confirmMode) delete postElement.dataset.confirmMode;
 
                     const actionContainer = postElement.querySelector(`#action-container-${postId}`);
                     if (actionContainer) actionContainer.innerHTML = '';
