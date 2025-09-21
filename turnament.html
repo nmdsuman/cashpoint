@@ -62,6 +62,10 @@
         #posts-container.compact .post-card .gap-4 { gap: 0.5rem !important; }
         /* Reduce spacing between cards in compact mode (override Tailwind's space-y-4) */
         #posts-container.compact > .post-card { margin-top: 0.5rem !important; }
+        /* Extra compaction: hide Room/Prize button row and tighten details/countdown spacing */
+        #posts-container.compact .post-card .details-section { margin-top: 0.25rem !important; padding-top: 0.5rem !important; }
+        #posts-container.compact .post-card .extras-row { display: none !important; }
+        #posts-container.compact .post-card .starts-row { margin-top: 0.25rem !important; padding: 0.5rem !important; }
     </style>
 </head>
 
@@ -195,7 +199,7 @@
             }
         };
         // Initialize density from localStorage
-        const savedDensity = localStorage.getItem('postsDensity') || 'comfortable';
+        const savedDensity = localStorage.getItem('postsDensity') || 'compact';
         applyDensity(savedDensity);
         if (densityToggleBtn) {
             densityToggleBtn.addEventListener('click', () => {
@@ -636,8 +640,8 @@
                     ${actionSectionHTML}
                 </div>
 
-                <div class="mt-4 border-t border-slate-200 pt-3">
-                    <div class="grid grid-cols-2 gap-2 text-xs">
+                <div class="mt-4 border-t border-slate-200 pt-3 details-section">
+                    <div class="grid grid-cols-2 gap-2 text-xs extras-row">
                         <button class="toggle-room flex justify-between items-center w-full bg-slate-100 border border-slate-200 text-slate-800 font-semibold py-2 px-1 rounded-lg hover:bg-slate-200 transition">
                             <span><i class="fas fa-info-circle text-slate-500 w-4 mr-1"></i>Room Details</span>
                             <i class="fas fa-chevron-down transform transition-transform"></i>
@@ -673,7 +677,7 @@
                     </div>
                 </div>
 
-                <div class="mt-3 rounded-lg bg-blue-600 p-2 flex items-center justify-between text-white">
+                <div class="mt-3 rounded-lg bg-blue-600 p-2 flex items-center justify-between text-white starts-row">
                     <span class="font-semibold text-xs">STARTS IN</span>
                     <span id="countdown-${post.id}" data-countdown-end="${startTime.getTime()}" class="font-bold">লোড হচ্ছে...</span>
                 </div>
